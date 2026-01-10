@@ -2,12 +2,15 @@
 #include "common.h"
 #include "logger.h"
 #include "http_parser.h"
-#include <pthread.h>
 
-/**
- * Lit le contenu d'un fichier binaire ou texte.
- * @return Un pointeur vers le contenu (doit être libéré avec free())
- */
+void lith_close_socket(socket_t s) {
+#ifdef _WIN32
+    closesocket(s);
+#else
+    close(s);
+#endif
+}
+
 char* read_file(const char* filename, long *size) {
     FILE *f = fopen(filename, "rb");
     if (!f) return NULL;
@@ -25,9 +28,6 @@ char* read_file(const char* filename, long *size) {
     return content;
 }
 
-/**
- * Handler pour chaque client (Thread)
- */
 void *lith_client_handler(void *arg) {
     ClientContext *ctx = (ClientContext *)arg;
     char buffer[BUFFER_SIZE] = {0};
@@ -37,9 +37,8 @@ void *lith_client_handler(void *arg) {
     if (valread > 0) {
         HttpRequest req;
         if (parse_http_request(buffer, &req) == 0) {
-            lith_log(LOG_INFO, "Requête: %s %s", method_to_str(req.method), req.path);
+            lith_log(LOG_INFO, "Request: %s %s", method_to_str(req.method), req.path);
 
-            // Déterminer le chemin du fichier (ex: public/index.html)
             char file_path[512] = "public";
             if (strcmp(req.path, "/") == 0) {
                 strcat(file_path, "/index.html");
@@ -51,96 +50,87 @@ void *lith_client_handler(void *arg) {
             char *file_content = read_file(file_path, &file_size);
 
             if (file_content) {
-                // En-tête HTTP 200 OK
                 char header[256];
                 sprintf(header, "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", file_size);
                 send(ctx->client_socket, header, (int)strlen(header), 0);
-                
-                // Corps du fichier
                 send(ctx->client_socket, file_content, (int)file_size, 0);
                 free(file_content);
             } else {
-                // Fichier non trouvé : 404
-                lith_log(LOG_WARN, "404 - Introuvable: %s", file_path);
-                char *not_found = "HTTP/1.1 404 Not Found\r\nContent-Length: 18\r\n\r\n<h1>404 Page Not Found</h1>";
-                send(ctx->client_socket, not_found, (int)strlen(not_found), 0);
+                lith_log(LOG_WARN, "404 - Not Found: %s", file_path);
+                char *res404 = "HTTP/1.1 404 Not Found\r\nContent-Length: 20\r\nConnection: close\r\n\r\n<h1>404 Not Found</h1>";
+                send(ctx->client_socket, res404, (int)strlen(res404), 0);
             }
         }
     }
 
-    close(ctx->client_socket);
+    lith_close_socket(ctx->client_socket);
     free(ctx);
     return NULL;
 }
 
-/**
- * Initialisation du socket serveur
- */
 int lith_init_server(int port) {
-    int server_fd;
-    struct sockaddr_in address;
-    int opt = 1;
-
 #ifdef _WIN32
     WSADATA wsa;
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        lith_log(LOG_ERROR, "Échec WSAStartup");
+        lith_log(LOG_ERROR, "WSAStartup failed");
         return -1;
     }
 #endif
 
-    server_fd = (int)socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        lith_log(LOG_ERROR, "Échec création socket");
+    socket_t server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == (socket_t)-1) {
+        lith_log(LOG_ERROR, "Socket creation failed");
         return -1;
     }
 
+    int opt = 1;
     setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(port);
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        lith_log(LOG_ERROR, "Bind impossible sur le port %d", port);
+    if (bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        lith_log(LOG_ERROR, "Bind failed on port %d", port);
+        lith_close_socket(server_fd);
         return -1;
     }
 
     if (listen(server_fd, BACKLOG) < 0) {
-        lith_log(LOG_ERROR, "Listen échoué");
+        lith_log(LOG_ERROR, "Listen failed");
+        lith_close_socket(server_fd);
         return -1;
     }
 
-    lith_log(LOG_INFO, "LITH %s prêt sur le port %d", LITH_VERSION, port);
-    return server_fd;
+    lith_log(LOG_INFO, "LITH %s ready on port %d", LITH_VERSION, port);
+    return (int)server_fd;
 }
 
-/**
- * Boucle principale d'acceptation
- */
 void lith_start_server(int server_fd) {
     while (true) {
-        struct sockaddr_in client_addr;
-        socklen_t addr_len = sizeof(client_addr);
+        struct sockaddr_in addr;
+        socklen_t len = sizeof(addr);
         
         ClientContext *ctx = malloc(sizeof(ClientContext));
         if (!ctx) continue;
 
-        ctx->client_socket = (int)accept(server_fd, (struct sockaddr *)&client_addr, &addr_len);
+        ctx->client_socket = accept((socket_t)server_fd, (struct sockaddr *)&addr, &len);
 
-        if (ctx->client_socket < 0) {
+        if (ctx->client_socket == (socket_t)-1) {
             free(ctx);
             continue;
         }
 
-        pthread_t thread_id;
-        if (pthread_create(&thread_id, NULL, lith_client_handler, (void *)ctx) != 0) {
-            close(ctx->client_socket);
-            free(ctx);
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, lith_client_handler, ctx) == 0) {
+            pthread_detach(tid);
         } else {
-            pthread_detach(thread_id);
+            lith_close_socket(ctx->client_socket);
+            free(ctx);
         }
     }
+    
 #ifdef _WIN32
     WSACleanup();
 #endif
