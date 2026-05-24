@@ -1,0 +1,120 @@
+name: Build and Package LITH
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact_name: lith-linux.tar.gz
+            asset_path: lith-linux.tar.gz
+          - os: windows-latest
+            artifact_name: lith-windows.zip
+            asset_path: lith-windows.zip
+          - os: macos-latest
+            artifact_name: lith-mac.tar.gz
+            asset_path: lith-mac.tar.gz
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up GCC (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: mingw-w64-x86_64-gcc gcc make
+
+    - name: Compile LITH (Linux & macOS)
+      if: matrix.os != 'windows-latest'
+      run: |
+        make
+
+    - name: Compile LITH (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: msys2 {0}
+      run: |
+        make
+
+    - name: Prepare Workspace Folder Structure
+      run: |
+        mkdir -p dist/public
+        cp -r public/* dist/public/
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp bin/lith.exe dist/lith.exe
+        else
+          cp bin/lith dist/lith
+        fi
+
+    - name: Package Windows Artifact (.zip)
+      if: matrix.os == 'windows-latest'
+      shell: bash
+      run: |
+        cd dist
+        7z a ../lith-windows.zip lith.exe public/
+
+    - name: Package Linux Artifact (.tar.gz)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd dist
+        tar -czf ../lith-linux.tar.gz lith public/
+
+    - name: Package macOS Artifact (.tar.gz)
+      if: matrix.os == 'macos-latest'
+      run: |
+        cd dist
+        tar -czf ../lith-mac.tar.gz lith public/
+
+    - name: Upload Intermediate Platform Artifacts
+      uses: actions/artifacts@v4
+      with:
+        name: ${{ matrix.artifact_name }}
+        path: ${{ matrix.asset_path }}
+        retention-days: 1
+
+  bundle:
+    name: Bundle All Operational Binaries
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create Consolidation Directory
+      run: mkdir -p bundle_payload
+
+    - name: Download Linux Binary Package
+      uses: actions/artifacts@v4
+      with:
+        name: lith-linux.tar.gz
+        path: bundle_payload
+
+    - name: Download Windows Binary Package
+      uses: actions/artifacts@v4
+      with:
+        name: lith-windows.zip
+        path: bundle_payload
+
+    - name: Download macOS Binary Package
+      uses: actions/artifacts@v4
+      with:
+        name: lith-mac.tar.gz
+        path: bundle_payload
+
+    - name: Zip All Distribution Packages
+      run: |
+        zip -r lith-distribution.zip bundle_payload
+
+    - name: Upload Final Consolidated Artifact
+      uses: actions/artifacts@v4
+      with:
+        name: lith-release-packages
+        path: lith-distribution.zip
