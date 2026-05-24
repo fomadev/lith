@@ -11,6 +11,21 @@ void lith_close_socket(socket_t s) {
 #endif
 }
 
+/**
+ * Checks if the requested path is safe (prevents Directory Traversal)
+ * Returns true if safe, false if dangerous
+ */
+bool is_safe_path(const char *path) {
+    if (!path) return false;
+
+    // Reject paths containing ".." to prevent moving up directories
+    if (strstr(path, "..") != NULL) {
+        return false;
+    }
+
+    return true;
+}
+
 char* read_file(const char* filename, long *size) {
     FILE *f = fopen(filename, "rb");
     if (!f) return NULL;
@@ -38,6 +53,17 @@ void *lith_client_handler(void *arg) {
         HttpRequest req;
         if (parse_http_request(buffer, &req) == 0) {
             lith_log(LOG_INFO, "Request: %s %s", method_to_str(req.method), req.path);
+
+            // SECURITY CHECK: Anti-Directory Traversal
+            if (!is_safe_path(req.path)) {
+                lith_log(LOG_WARN, "Security Alert: Blocked traversal attempt on path: %s", req.path);
+                char *res403 = "HTTP/1.1 403 Forbidden\r\nContent-Length: 22\r\nConnection: close\r\n\r\n<h1>403 Forbidden</h1>";
+                send(ctx->client_socket, res403, (int)strlen(res403), 0);
+                
+                lith_close_socket(ctx->client_socket);
+                free(ctx);
+                return NULL;
+            }
 
             char file_path[512] = "public";
             if (strcmp(req.path, "/") == 0) {
