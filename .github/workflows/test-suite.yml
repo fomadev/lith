@@ -19,7 +19,7 @@ jobs:
     - name: Install Toolchain and Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential curl jq apache2-utils
+        sudo apt-get install -y build-essential curl jq apache2-utils netcat-openbsd
 
     - name: Prepare Local Test Environment
       run: |
@@ -57,10 +57,8 @@ jobs:
         echo "=================================================="
         echo " TEST 2: Validation HTTP POST (Engine v1.0.5) "
         echo "=================================================="
-        # Envoi d'un vrai JSON et vérification de la réponse applicative de LITH
         POST_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"test":"ci_payload"}' http://localhost:8888/api/test)
         
-        # Utilisation de 'jq' pour valider la structure JSON renvoyée par ton src/server.c
         STATUS_JSON=$(echo "$POST_RESPONSE" | jq -r '.status' 2>/dev/null)
         BYTES_JSON=$(echo "$POST_RESPONSE" | jq -r '.bytes_processed' 2>/dev/null)
         
@@ -75,7 +73,6 @@ jobs:
         echo "=================================================="
         echo " TEST 3: Security - Directory Traversal Barrier "
         echo "=================================================="
-        # L'option --path-as-is force curl à envoyer les '../' sans les résoudre localement.
         SEC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --path-as-is http://localhost:8888/../../etc/passwd)
         if [ "$SEC_STATUS" -eq 400 ] || [ "$SEC_STATUS" -eq 403 ] || [ "$SEC_STATUS" -eq 404 ]; then
           echo "✅ Security Guard Success: Traversal blocked or mitigated with HTTP $SEC_STATUS"
@@ -87,7 +84,6 @@ jobs:
         echo "=================================================="
         echo " 🏋️ TEST 4: Stress & File Descriptor Leak Testing "
         echo "=================================================="
-        # Mesure initiale des descripteurs ouverts par LITH
         INITIAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
         echo "Initial open File Descriptors: $INITIAL_FD_COUNT"
         
@@ -97,10 +93,8 @@ jobs:
           curl -s -X POST -H "Content-Type: application/json" -d '{"stress":"test"}' http://localhost:8888/api/test -o /dev/null
         done
         
-        # Laisser 1 seconde pour que les derniers pthreads terminent leur clean-up
         sleep 1
         
-        # Mesure finale
         FINAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
         echo "Final open File Descriptors: $FINAL_FD_COUNT"
         
@@ -115,7 +109,6 @@ jobs:
         echo "=================================================="
         echo " 🏎️ TEST 5: Thread Concurrency & Crash Testing "
         echo "=================================================="
-        # Vérification préalable que le serveur a survécu aux étapes antérieures
         if ! kill -0 $SERVER_PID 2>/dev/null; then
           echo "❌ CRITICAL: Server was already dead before beginning concurrency tests."; exit 1
         fi
@@ -126,25 +119,43 @@ jobs:
         ab -n 1000 -c 50 http://localhost:8888/index.html
 
         echo "🔥 Phase B: Bombarding with 500 concurrent POST requests (25 parallel)..."
-        # Test intensif du nouveau parseur dynamique et de la gestion de mémoire par thread
         ab -n 500 -c 25 -p post_data.json -T "application/json" http://localhost:8888/api/test
 
-        # Vérification ultime de viabilité du processus (détection des Segfaults causés par des Race Conditions)
         echo "--------------------------------------------------"
         if kill -0 $SERVER_PID 2>/dev/null; then
           echo "✅ PARFAIT: LITH a survécu au bombardement multi-thread sans aucune Race Condition !"
         else
-          echo "🚨 CRITIQUE: Le moteur a CRASHÉ (Segmentation Fault probable) sous la charge conjointe !"
-          echo "Vérifie l'accès concurrent aux buffers partagés ou aux instances de logger."
+          echo "🚨 CRITIQUE: Le moteur a CRASHÉ sous la charge conjointe !"
           rm -f post_data.json
           exit 1
         fi
-
-        # Nettoyage des artefacts de test locaux
         rm -f post_data.json
 
-        # Fin globale de la suite d'intégration
         echo "=================================================="
-        echo " 🎉 All 5 structural integration tests passed successfully!"
+        echo " 🛡️ TEST 6: Slow Connection / Timeout Resistance "
+        echo "=================================================="
+        START_TIME=$(date +%s)
+        
+        echo "Simulating a slow request (sending partial headers and sleeping)..."
+        # On ouvre une connexion, envoie une en-tête tronquée et on attend 4 secondes (LITH doit couper à 3s)
+        (echo -e "POST /api/test HTTP/1.1\r\nContent-Length: 100\r\n"; sleep 4) | nc -w 6 localhost 8888 || true
+        
+        END_TIME=$(date +%s)
+        DURATION=$((END_TIME - START_TIME))
+        echo "Connection lasted for: $DURATION seconds"
+
+        if [ "$DURATION" -ge 4 ]; then
+          echo "❌ CRITICAL FAULT: LITH is vulnerable to Slowloris / Hung connections! (No active timeout)"
+          kill $SERVER_PID; exit 1
+        else
+          echo "✅ PASSED: Socket timeout successfully triggered. Dead connection dropped in $DURATION seconds."
+        fi
+
+        echo "Checking if server is still operational for legitimate users..."
+        curl -s -I http://localhost:8888/ | grep -q "200 OK" && echo "✅ Server is alive and healthy!"
+
+        # Fin globale de la suite de tests
+        echo "=================================================="
+        echo " 🎉 All 6 advanced industrial tests passed successfully!"
         echo "=================================================="
         kill $SERVER_PID
