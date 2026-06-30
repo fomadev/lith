@@ -20,15 +20,12 @@
     #include <arpa/inet.h>
     #include <unistd.h>
     typedef int socket_t;
+    typedef socklen_t system_socklen_t; // Évite les conflits de types selon les POSIX
 #endif
 
 #include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdbool.h>
-
-#include "common.h" // Assure l'accès à ServerConfig
+#include "common.h"
 
 #define DEFAULT_PORT 8090
 #define BACKLOG 10
@@ -37,14 +34,11 @@
 typedef struct {
     socket_t client_socket;
     struct sockaddr_in client_address;
-    // Note optionnelle : vous pourrez y ajouter un pointeur vers la config si le handler en a besoin
 } ClientContext;
 
-/* Déclarations des fonctions de configuration et cycle de vie */
-int load_config(const char *filename, ServerConfig *config);
+/* Cycle de vie du serveur réseau */
 int lith_init_server(const ServerConfig *config);
 void lith_start_server(int server_fd, const ServerConfig *config);
 void *lith_client_handler(void *arg);
-void lith_close_socket(socket_t s);
 
-#endif
+#endif // SERVER_H

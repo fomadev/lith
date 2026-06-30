@@ -4,124 +4,18 @@
  */
 
 #include "server.h"
-#include "common.h"
+#include "server_utils.h"
 #include "logger.h"
 #include "http_parser.h"
-#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-/* Structure étendue passée au thread de traitement du client */
 typedef struct {
     ClientContext base_ctx;
     char public_dir[256];
 } ExpandedClientContext;
 
-/**
- * Ferme un socket de manière portable (Windows / Unix)
- */
-void lith_close_socket(socket_t s) {
-#ifdef _WIN32
-    closesocket(s);
-#else
-    close(s);
-#endif
-}
-
-/**
- * Vérifie si le chemin demandé est sécurisé (anti-Directory Traversal)
- * Retourne true si sûr, false si dangereux
- */
-bool is_safe_path(const char *path) {
-    if (!path) return false;
-
-    // Rejette les chemins contenant ".." pour éviter de remonter l'arborescence
-    if (strstr(path, "..") != NULL) {
-        return false;
-    }
-
-    return true;
-}
-
-/**
- * Lit l'intégralité d'un fichier binaire et alloue la mémoire nécessaire
- */
-char* read_file(const char* filename, long *size) {
-    FILE *f = fopen(filename, "rb");
-    if (!f) return NULL;
-
-    fseek(f, 0, SEEK_END);
-    *size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    char *content = malloc(*size + 1);
-    if (content) {
-        fread(content, 1, *size, f);
-        content[*size] = '\0';
-    }
-    fclose(f);
-    return content;
-}
-
-/**
- * Charge un fichier de configuration clé=valeur basique
- * Supporte les commentaires avec '#' et ignore les espaces.
- */
-int load_config(const char *filename, ServerConfig *config) {
-    // Valeurs par défaut de secours
-    config->port = 8090;
-    strcpy(config->public_dir, "public");
-
-    FILE *f = fopen(filename, "r");
-    if (!f) {
-        lith_log(LOG_WARN, "Configuration file '%s' not found. Using defaults (Port: %d, Root: %s)", 
-                 filename, config->port, config->public_dir);
-        return -1;
-    }
-
-    char line[384];
-    while (fgets(line, sizeof(line), f)) {
-        // Supprimer le changement de ligne terminal
-        line[strcspn(line, "\r\n")] = 0;
-
-        // Ignorer les commentaires et lignes vides
-        char *ptr = line;
-        while (isspace((unsigned char)*ptr)) ptr++;
-        if (*ptr == '\0' || *ptr == '#') continue;
-
-        // Séparer Clé / Valeur autour du signe '='
-        char *equal = strchr(ptr, '=');
-        if (!equal) continue;
-
-        *equal = '\0';
-        char *key = ptr;
-        char *value = equal + 1;
-
-        // Nettoyage des espaces pour la clé
-        while (isspace((unsigned char)*key)) key++;
-        char *end_key = key + strlen(key) - 1;
-        while (end_key > key && isspace((unsigned char)*end_key)) { *end_key = '\0'; end_key--; }
-
-        // Nettoyage des espaces pour la valeur
-        while (isspace((unsigned char)*value)) value++;
-        char *end_val = value + strlen(value) - 1;
-        while (end_val > value && isspace((unsigned char)*end_val)) { *end_val = '\0'; end_val--; }
-
-        // Affectation des paramètres
-        if (strcmp(key, "PORT") == 0) {
-            config->port = atoi(value);
-        } else if (strcmp(key, "PUBLIC_DIR") == 0) {
-            strncpy(config->public_dir, value, sizeof(config->public_dir) - 1);
-            config->public_dir[sizeof(config->public_dir) - 1] = '\0';
-        }
-    }
-
-    fclose(f);
-    lith_log(LOG_INFO, "Configuration loaded: Port=%d, Public Directory='%s'", config->port, config->public_dir);
-    return 0;
-}
-
-/**
- * Traitement des requêtes HTTP clients (Thread Worker)
- */
 void *lith_client_handler(void *arg) {
     ExpandedClientContext *ectx = (ExpandedClientContext *)arg;
     ClientContext *ctx = &(ectx->base_ctx);
@@ -159,7 +53,6 @@ void *lith_client_handler(void *arg) {
             return NULL;
         }
 
-        // Utilisation dynamique du chemin public configuré
         char file_path[512];
         strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
         file_path[sizeof(file_path) - 1] = '\0';
@@ -197,7 +90,7 @@ void *lith_client_handler(void *arg) {
         }
     } else {
         lith_log(LOG_ERROR, "500 - Internal Server Error on network receive");
-        const char *html = get_error_html(500, "Internal Server Error", "The server encountered an unexpected condition during socket stream isolation.");
+        const char *html = get_error_html(500, "Internal Server Error", "The server encountered an unexpected condition.");
         char header[256];
         sprintf(header, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: %zu\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", strlen(html));
         send(ctx->client_socket, header, (int)strlen(header), 0);
@@ -209,9 +102,6 @@ void *lith_client_handler(void *arg) {
     return NULL;
 }
 
-/**
- * Initialisation du socket serveur d'écoute
- */
 int lith_init_server(const ServerConfig *config) {
 #ifdef _WIN32
     WSADATA wsa;
@@ -229,12 +119,10 @@ int lith_init_server(const ServerConfig *config) {
 
     int opt = 1;
 #ifdef _WIN32
-    // Windows : On force l'exclusivité pour des raisons de sécurité (Winsock)
     if (setsockopt(server_fd, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&opt, sizeof(opt)) < 0) {
         lith_log(LOG_WARN, "Failed to set SO_EXCLUSIVEADDRUSE");
     }
 #else
-    // Linux / macOS : On utilise REUSEADDR pour libérer le port immédiatement après un arrêt
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0) {
         lith_log(LOG_WARN, "Failed to set SO_REUSEADDR");
     }
@@ -261,18 +149,18 @@ int lith_init_server(const ServerConfig *config) {
     return (int)server_fd;
 }
 
-/**
- * Boucle principale d'écoute des connexions entrantes
- */
 void lith_start_server(int server_fd, const ServerConfig *config) {
     while (true) {
         struct sockaddr_in addr;
+#ifdef _WIN32
+        int len = sizeof(addr);
+#else
         socklen_t len = sizeof(addr);
+#endif
         
         ExpandedClientContext *ectx = malloc(sizeof(ExpandedClientContext));
         if (!ectx) continue;
 
-        // Recopie du dossier public dans le contexte du thread client
         strncpy(ectx->public_dir, config->public_dir, sizeof(ectx->public_dir) - 1);
         ectx->public_dir[sizeof(ectx->public_dir) - 1] = '\0';
 
