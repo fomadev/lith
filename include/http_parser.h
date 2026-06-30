@@ -7,6 +7,7 @@
 #define HTTP_PARSER_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #define MAX_PATH_SIZE 256
 
@@ -21,6 +22,7 @@ typedef struct {
     char path[MAX_PATH_SIZE];
     long content_length;       // Longueur du corps annoncée par l'en-tête
     const char *body_start;    // Pointeur direct vers le début du corps dans le buffer initial
+    bool keep_alive;           // AJOUT : État de persistance de la connexion
 } HttpRequest;
 
 /* Fonctions de parsing */
