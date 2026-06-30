@@ -159,7 +159,7 @@ void *lith_client_handler(void *arg) {
             return NULL;
         }
 
-        // Utilisation dynamique du chemin public configuré au lieu de la chaine en dur "public"
+        // Utilisation dynamique du chemin public configuré
         char file_path[512];
         strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
         file_path[sizeof(file_path) - 1] = '\0';
@@ -229,13 +229,16 @@ int lith_init_server(const ServerConfig *config) {
 
     int opt = 1;
 #ifdef _WIN32
+    // Windows : On force l'exclusivité pour des raisons de sécurité (Winsock)
     if (setsockopt(server_fd, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&opt, sizeof(opt)) < 0) {
         lith_log(LOG_WARN, "Failed to set SO_EXCLUSIVEADDRUSE");
     }
-#endif
+#else
+    // Linux / macOS : On utilise REUSEADDR pour libérer le port immédiatement après un arrêt
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0) {
         lith_log(LOG_WARN, "Failed to set SO_REUSEADDR");
     }
+#endif
 
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
