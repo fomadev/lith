@@ -19,13 +19,23 @@ typedef struct {
 void *lith_client_handler(void *arg) {
     ExpandedClientContext *ectx = (ExpandedClientContext *)arg;
     ClientContext *ctx = &(ectx->base_ctx);
-    char buffer[BUFFER_SIZE] = {0};
     
-    int valread = recv(ctx->client_socket, buffer, BUFFER_SIZE - 1, 0);
+    // Allocation d'un grand buffer dynamique pour stocker les en-têtes + le corps complet
+    // BUFFER_SIZE est défini à 4096 octets dans server.h
+    char *full_buffer = malloc(BUFFER_SIZE * 4); 
+    if (!full_buffer) {
+        lith_log(LOG_ERROR, "Memory allocation failed for client handler");
+        lith_close_socket(ctx->client_socket);
+        free(ectx);
+        return NULL;
+    }
+    memset(full_buffer, 0, BUFFER_SIZE * 4);
+
+    int total_received = recv(ctx->client_socket, full_buffer, (BUFFER_SIZE * 4) - 1, 0);
     
-    if (valread > 0) {
+    if (total_received > 0) {
         HttpRequest req;
-        if (parse_http_request(buffer, &req) != 0) {
+        if (parse_http_request(full_buffer, &req) != 0) {
             lith_log(LOG_WARN, "400 - Bad Request parsing failed");
             const char *html = get_error_html(400, "Bad Request", "The server could not understand the request due to malformed syntax.");
             char header[256];
@@ -34,59 +44,109 @@ void *lith_client_handler(void *arg) {
             send(ctx->client_socket, html, (int)strlen(html), 0);
             
             lith_close_socket(ctx->client_socket);
+            free(full_buffer);
             free(ectx);
             return NULL;
+        }
+
+        // --- GESTION DU CORPS DE LA REQUÊTE HTTP POST ---
+        if (req.method == METHOD_POST && req.content_length > 0) {
+            long already_received_body = 0;
+            
+            if (req.body_start) {
+                // Nombre d'octets du corps récupérés lors du tout premier recv()
+                already_received_body = total_received - (req.body_start - full_buffer);
+            }
+
+            // Boucle d'aspiration réseau si le corps est incomplet ou fragmenté
+            while (already_received_body < req.content_length) {
+                long remaining = req.content_length - already_received_body;
+                // Protection pour éviter de saturer notre espace tampon maximal
+                if (total_received >= (BUFFER_SIZE * 4) - 1) {
+                    lith_log(LOG_WARN, "413 - Payload Too Large: Client sent more bytes than maximum allocated buffer size");
+                    break;
+                }
+
+                int n = recv(ctx->client_socket, full_buffer + total_received, remaining, 0);
+                if (n <= 0) {
+                    break; // Déconnexion ou erreur de lecture réseau
+                }
+                total_received += n;
+                already_received_body += n;
+            }
+            
+            // Re-parser la structure après l'aspiration totale pour garantir la validité des pointeurs de chaînes
+            parse_http_request(full_buffer, &req);
         }
 
         lith_log(LOG_INFO, "Request: %s %s", method_to_str(req.method), req.path);
 
-        if (!is_safe_path(req.path)) {
-            lith_log(LOG_WARN, "Security Alert: Blocked traversal attempt on path: %s", req.path);
-            const char *html = get_error_html(403, "Forbidden", "Access to this resource is strictly prohibited.");
-            char header[256];
-            sprintf(header, "HTTP/1.1 403 Forbidden\r\nContent-Length: %zu\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", strlen(html));
-            send(ctx->client_socket, header, (int)strlen(header), 0);
-            send(ctx->client_socket, html, (int)strlen(html), 0);
+        // --- AGUILLAGE DES MÉTHODES HTTP ---
+        if (req.method == METHOD_POST) {
+            // Traitement applicatif d'une route API POST pour la v1.0.5
+            // Pour l'instant, on lit le corps reçu et on le renvoie en écho (Echo Server)
+            lith_log(LOG_INFO, "POST Payload payload size: %ld bytes", req.content_length);
             
-            lith_close_socket(ctx->client_socket);
-            free(ectx);
-            return NULL;
-        }
+            char response_body[512];
+            snprintf(response_body, sizeof(response_body),
+                     "{\"status\":\"success\",\"message\":\"Data received successfully by LITH\",\"bytes_processed\":%ld}",
+                     req.content_length);
 
-        char file_path[512];
-        strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
-        file_path[sizeof(file_path) - 1] = '\0';
-
-        if (strcmp(req.path, "/") == 0) {
-            strcat(file_path, "/index.html");
-        } else {
-            strcat(file_path, req.path);
-        }
-
-        long file_size = 0;
-        char *file_content = read_file(file_path, &file_size);
-
-        if (file_content) {
             char header[384];
-            const char *mime_type = get_mime_type(file_path);
-
             sprintf(header, 
                     "HTTP/1.1 200 OK\r\n"
-                    "Content-Length: %ld\r\n"
-                    "Content-Type: %s\r\n"
+                    "Content-Length: %zu\r\n"
+                    "Content-Type: application/json\r\n"
                     "Connection: close\r\n\r\n", 
-                    file_size, mime_type);
+                    strlen(response_body));
 
             send(ctx->client_socket, header, (int)strlen(header), 0);
-            send(ctx->client_socket, file_content, (int)file_size, 0);
-            free(file_content);
-        } else {
-            lith_log(LOG_WARN, "404 - Not Found: %s", file_path);
-            const char *html = get_error_html(404, "Not Found", "The requested URL or resource could not be located on this server.");
-            char header[256];
-            sprintf(header, "HTTP/1.1 404 Not Found\r\nContent-Length: %zu\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", strlen(html));
-            send(ctx->client_socket, header, (int)strlen(header), 0);
-            send(ctx->client_socket, html, (int)strlen(html), 0);
+            send(ctx->client_socket, response_body, (int)strlen(response_body), 0);
+
+        } else if (req.method == METHOD_GET) {
+            // Logique historique inchangée pour le traitement des fichiers statiques
+            if (!is_safe_path(req.path)) {
+                lith_log(LOG_WARN, "Security Alert: Blocked traversal attempt on path: %s", req.path);
+                const char *html = get_error_html(403, "Forbidden", "Access to this resource is strictly prohibited.");
+                char header[256];
+                sprintf(header, "HTTP/1.1 403 Forbidden\r\nContent-Length: %zu\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", strlen(html));
+                send(ctx->client_socket, header, (int)strlen(header), 0);
+                send(ctx->client_socket, html, (int)strlen(html), 0);
+                
+                lith_close_socket(ctx->client_socket);
+                free(full_buffer);
+                free(ectx);
+                return NULL;
+            }
+
+            char file_path[512];
+            strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
+            file_path[sizeof(file_path) - 1] = '\0';
+
+            if (strcmp(req.path, "/") == 0) {
+                strcat(file_path, "/index.html");
+            } else {
+                strcat(file_path, req.path);
+            }
+
+            long file_size = 0;
+            char *file_content = read_file(file_path, &file_size);
+
+            if (file_content) {
+                char header[384];
+                const char *mime_type = get_mime_type(file_path);
+                sprintf(header, "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\nConnection: close\r\n\r\n", file_size, mime_type);
+                send(ctx->client_socket, header, (int)strlen(header), 0);
+                send(ctx->client_socket, file_content, (int)file_size, 0);
+                free(file_content);
+            } else {
+                lith_log(LOG_WARN, "404 - Not Found: %s", file_path);
+                const char *html = get_error_html(404, "Not Found", "The requested URL or resource could not be located on this server.");
+                char header[256];
+                sprintf(header, "HTTP/1.1 404 Not Found\r\nContent-Length: %zu\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n", strlen(html));
+                send(ctx->client_socket, header, (int)strlen(header), 0);
+                send(ctx->client_socket, html, (int)strlen(html), 0);
+            }
         }
     } else {
         lith_log(LOG_ERROR, "500 - Internal Server Error on network receive");
@@ -98,6 +158,7 @@ void *lith_client_handler(void *arg) {
     }
 
     lith_close_socket(ctx->client_socket);
+    free(full_buffer);
     free(ectx);
     return NULL;
 }
