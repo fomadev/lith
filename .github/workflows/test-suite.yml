@@ -2,9 +2,9 @@ name: Functional Test Suite
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test-suite" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "test-suite" ]
   workflow_dispatch:
 
 jobs:
@@ -76,7 +76,6 @@ jobs:
         echo " TEST 3: Security - Directory Traversal Barrier "
         echo "=================================================="
         # L'option --path-as-is force curl à envoyer les '../' sans les résoudre localement.
-        # On accepte 400, 403 ou 404 comme atténuation valide du risque.
         SEC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --path-as-is http://localhost:8888/../../etc/passwd)
         if [ "$SEC_STATUS" -eq 400 ] || [ "$SEC_STATUS" -eq 403 ] || [ "$SEC_STATUS" -eq 404 ]; then
           echo "✅ Security Guard Success: Traversal blocked or mitigated with HTTP $SEC_STATUS"
@@ -85,8 +84,36 @@ jobs:
           kill $SERVER_PID; exit 1
         fi
 
+        echo "=================================================="
+        echo " 🏋️ TEST 4: Stress & File Descriptor Leak Testing "
+        echo "=================================================="
+        # Mesure initiale des descripteurs ouverts par LITH (stdin, stdout, stderr, listen socket, etc.)
+        INITIAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
+        echo "Initial open File Descriptors: $INITIAL_FD_COUNT"
+        
+        echo "Bombarding server with 200 rapid requests (100 GET + 100 POST)..."
+        for i in {1..100}; do
+          curl -s http://localhost:8888/index.html -o /dev/null
+          curl -s -X POST -H "Content-Type: application/json" -d '{"stress":"test"}' http://localhost:8888/api/test -o /dev/null
+        done
+        
+        # CRUCIAL : Laisser 1 seconde pour que les derniers pthreads terminent leur clean-up
+        sleep 1
+        
+        # Mesure finale
+        FINAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
+        echo "Final open File Descriptors: $FINAL_FD_COUNT"
+        
+        if [ "$FINAL_FD_COUNT" -gt "$INITIAL_FD_COUNT" ]; then
+          echo "❌ CRITICAL FAULT: Resource leak detected! Sockets or files are remaining open."
+          ls -l /proc/$SERVER_PID/fd
+          kill $SERVER_PID; exit 1
+        else
+          echo "✅ PASSED: Structural socket sealing is perfect. Zero leaks detected."
+        fi
+
         # Nettoyage propre du processus en fin de validation
         echo "=================================================="
-        echo " 🎉 All integration tests passed successfully!"
+        echo " 🎉 All modular integration tests passed successfully!"
         echo "=================================================="
         kill $SERVER_PID
