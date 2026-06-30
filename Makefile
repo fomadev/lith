@@ -25,6 +25,6 @@ $(TARGET): $(OBJ)
 %.o: %.c
     $(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
-# Nettoyage des fichiers objets dans toute l'arborescence src
+# Nettoyage portable et robuste des fichiers objets et des exécutables
 clean:
-    rm -f src/*.o src/server/*.o $(TARGET)
+    rm -f src/*.o src/server/*.o $(TARGET_DIR)/lith $(TARGET_DIR)/lith.exe
