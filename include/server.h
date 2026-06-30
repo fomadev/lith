@@ -16,6 +16,7 @@
     typedef int socklen_t;
 #else
     #include <sys/socket.h>
+    #include <sys/time.h>     // <--- AJOUT CRUCIAL ICI pour définir struct timeval
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <unistd.h>
