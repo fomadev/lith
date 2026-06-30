@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <strings.h> // REQUIS : Pour strncasecmp (insensibilité à la casse)
 
 /**
  * Convertit une valeur de l'énumération HttpMethod en sa représentation textuelle
@@ -53,29 +54,38 @@ int parse_http_request(const char *buffer, HttpRequest *req) {
     }
     req->path[i] = '\0';
 
-    // 4. Extraction du Content-Length (insensible à la casse standard)
+    // 4. Extraction du Content-Length (Recherche insensible à la casse de l'en-tête)
     const char *cl_ptr = strstr(buffer, "Content-Length:");
     if (!cl_ptr) {
         cl_ptr = strstr(buffer, "content-length:");
     }
+    if (!cl_ptr) {
+        cl_ptr = strstr(buffer, "CONTENT-LENGTH:");
+    }
+    
     if (cl_ptr) {
         cl_ptr += 15; // On avance après la chaîne "Content-Length:"
         while (*cl_ptr == ' ') cl_ptr++; // Saute les espaces blancs optionnels
         req->content_length = strtol(cl_ptr, NULL, 10);
     }
 
-    // 5. Extraction et validation de l'état Connection (Keep-Alive vs Close)
+    // 5. Extraction et validation de l'état Connection (Indestructible via strncasecmp)
     const char *conn_ptr = strstr(buffer, "Connection:");
     if (!conn_ptr) {
         conn_ptr = strstr(buffer, "connection:");
     }
+    if (!conn_ptr) {
+        conn_ptr = strstr(buffer, "CONNECTION:");
+    }
+
     if (conn_ptr) {
         conn_ptr += 11; // On avance après "Connection:"
         while (*conn_ptr == ' ') conn_ptr++; // Saute les espaces blancs
         
-        if (strncmp(conn_ptr, "close", 5) == 0 || strncmp(conn_ptr, "Close", 5) == 0) {
+        // CORRIGÉ : Vérification 100% insensible à la casse (close / keep-alive)
+        if (strncasecmp(conn_ptr, "close", 5) == 0) {
             req->keep_alive = false;
-        } else if (strncmp(conn_ptr, "keep-alive", 10) == 0 || strncmp(conn_ptr, "Keep-Alive", 10) == 0) {
+        } else if (strncasecmp(conn_ptr, "keep-alive", 10) == 0) {
             req->keep_alive = true;
         }
     }
