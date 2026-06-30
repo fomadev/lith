@@ -14,7 +14,6 @@ void handle_sigint(int sig) {
     lith_log(LOG_INFO, "Shutting down LITH server...");
     
 #ifdef _WIN32
-    // Nettoyage de Winsock effectué proprement juste avant la destruction du processus
     WSACleanup();
 #endif
 
@@ -22,7 +21,6 @@ void handle_sigint(int sig) {
 }
 
 int main(int argc, char *argv[]) {
-    int port = (argc > 1) ? atoi(argv[1]) : DEFAULT_PORT;
     signal(SIGINT, handle_sigint);
 
     printf("----------------------------------------\n");
@@ -30,14 +28,25 @@ int main(int argc, char *argv[]) {
     printf("   Status: Running\n");
     printf("----------------------------------------\n");
 
-    int server_fd = lith_init_server(port);
-    
-    // Traitement strict de l'échec du bind/initialisation
-    if (server_fd < 0) {
-        lith_log(LOG_ERROR, "Failed to start server. Port %d might already be in use.", port);
-        return 1; // Quitte proprement avec un code d'erreur non-nul (exit 1)
+    // Chargement de la configuration externe
+    ServerConfig config;
+    load_config("lith.conf", &config);
+
+    // Surcharge optionnelle via argument CLI historique (Priorité Maximale)
+    if (argc > 1) {
+        int cli_port = atoi(argv[1]);
+        if (cli_port > 0) {
+            lith_log(LOG_INFO, "CLI Argument detected: Overriding port to %d", cli_port);
+            config.port = cli_port;
+        }
     }
 
-    lith_start_server(server_fd);
+    int server_fd = lith_init_server(&config);
+    if (server_fd < 0) {
+        lith_log(LOG_ERROR, "Failed to start server");
+        return 1;
+    }
+
+    lith_start_server(server_fd, &config);
     return 0;
 }
