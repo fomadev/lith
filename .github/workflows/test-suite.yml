@@ -75,10 +75,11 @@ jobs:
         echo "=================================================="
         echo " TEST 3: Security - Directory Traversal Barrier "
         echo "=================================================="
-        # Tentative d'évasion du bac à sable 'public/'
-        SEC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/../../etc/passwd)
-        if [ "$SEC_STATUS" -eq 400 ] || [ "$SEC_STATUS" -eq 403 ]; then
-          echo "✅ Security Guard Success: Traversal blocked with HTTP $SEC_STATUS"
+        # L'option --path-as-is force curl à envoyer les '../' sans les résoudre localement.
+        # On accepte 400, 403 ou 404 comme atténuation valide du risque.
+        SEC_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --path-as-is http://localhost:8888/../../etc/passwd)
+        if [ "$SEC_STATUS" -eq 400 ] || [ "$SEC_STATUS" -eq 403 ] || [ "$SEC_STATUS" -eq 404 ]; then
+          echo "✅ Security Guard Success: Traversal blocked or mitigated with HTTP $SEC_STATUS"
         else
           echo "🚨 SECURITY ALERT: Path traversal vulnerability discovered! Status: $SEC_STATUS"
           kill $SERVER_PID; exit 1
