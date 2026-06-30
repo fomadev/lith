@@ -25,11 +25,13 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
     (void)full_buffer; 
     (void)total_received;
 
-    // CORRIGÉ : Accès par pointeur (->) pour le log
+    // Accès par pointeur (->) pour le log
     lith_log(LOG_INFO, "Request: %s %s", method_to_str(req->method), req->path);
 
+    // Détermination dynamique du statut de connexion à renvoyer au client
+    const char *conn_state = req->keep_alive ? "keep-alive" : "close";
+
     // --- ROUTE API : POST ---
-    // CORRIGÉ : Accès par pointeur (->) pour la méthode et le content_length
     if (req->method == METHOD_POST) {
         lith_log(LOG_INFO, "POST Payload size: %ld bytes", req->content_length);
         
@@ -40,16 +42,14 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
 
         char header[384];
         snprintf(header, sizeof(header), 
-                 "HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n", 
-                 strlen(response_body));
+                 "HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nContent-Type: application/json\r\nConnection: %s\r\nKeep-Alive: timeout=3, max=100\r\n\r\n", 
+                 strlen(response_body), conn_state);
 
         send(ctx->client_socket, header, (int)strlen(header), 0);
         send(ctx->client_socket, response_body, (int)strlen(response_body), 0);
     } 
     // --- ROUTE FICHIERS STATIQUES : GET ---
-    // CORRIGÉ : Accès par pointeur (->) pour la méthode
     else if (req->method == METHOD_GET) {
-        // CORRIGÉ : Accès par pointeur (->) pour le path
         if (!is_safe_path(req->path)) {
             lith_log(LOG_WARN, "Security Alert: Blocked traversal attempt on path: %s", req->path);
             send_http_error(ctx->client_socket, 403, "Forbidden", "Access to this resource is strictly prohibited.");
@@ -60,7 +60,6 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
         strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
         file_path[sizeof(file_path) - 1] = '\0';
 
-        // CORRIGÉ : Accès par pointeur (->) pour la vérification de la racine
         if (strcmp(req->path, "/") == 0) {
             strcat(file_path, "/index.html");
         } else {
@@ -73,9 +72,12 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
         if (file_content) {
             char header[384];
             const char *mime_type = get_mime_type(file_path);
+            
+            // Formatage de l'en-tête intégrant le Keep-Alive dynamique
             snprintf(header, sizeof(header), 
-                     "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\nConnection: close\r\n\r\n", 
-                     file_size, mime_type);
+                     "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\nContent-Type: %s\r\nConnection: %s\r\nKeep-Alive: timeout=3, max=100\r\n\r\n", 
+                     file_size, mime_type, conn_state);
+                     
             send(ctx->client_socket, header, (int)strlen(header), 0);
             send(ctx->client_socket, file_content, (int)file_size, 0);
             free(file_content);
