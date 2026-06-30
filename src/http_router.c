@@ -25,9 +25,11 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
     (void)full_buffer; 
     (void)total_received;
 
+    // CORRIGÉ : Accès par pointeur (->) pour le log
     lith_log(LOG_INFO, "Request: %s %s", method_to_str(req->method), req->path);
 
     // --- ROUTE API : POST ---
+    // CORRIGÉ : Accès par pointeur (->) pour la méthode et le content_length
     if (req->method == METHOD_POST) {
         lith_log(LOG_INFO, "POST Payload size: %ld bytes", req->content_length);
         
@@ -45,7 +47,9 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
         send(ctx->client_socket, response_body, (int)strlen(response_body), 0);
     } 
     // --- ROUTE FICHIERS STATIQUES : GET ---
+    // CORRIGÉ : Accès par pointeur (->) pour la méthode
     else if (req->method == METHOD_GET) {
+        // CORRIGÉ : Accès par pointeur (->) pour le path
         if (!is_safe_path(req->path)) {
             lith_log(LOG_WARN, "Security Alert: Blocked traversal attempt on path: %s", req->path);
             send_http_error(ctx->client_socket, 403, "Forbidden", "Access to this resource is strictly prohibited.");
@@ -56,10 +60,11 @@ void handle_http_route(ExpandedClientContext *ectx, HttpRequest *req, char *full
         strncpy(file_path, ectx->public_dir, sizeof(file_path) - 1);
         file_path[sizeof(file_path) - 1] = '\0';
 
+        // CORRIGÉ : Accès par pointeur (->) pour la vérification de la racine
         if (strcmp(req->path, "/") == 0) {
             strcat(file_path, "/index.html");
         } else {
-            strcat(file_path, req.path);
+            strcat(file_path, req->path);
         }
 
         long file_size = 0;
