@@ -1,18 +1,24 @@
-# Dossier de build et binaire final
+# Exécutables et dossiers de build
 bin/
+obj/
+
+# Artefacts de compilation C
 *.o
-*.out
+*.obj
+*.d
 
-# Logs
-*.log
-
-# Fichiers temporaires éditeurs
+# Fichiers locaux ou temporaires d'éditeurs
 .vscode/
 .idea/
 *.swp
 *~
 
+# Logs
+*.log
+
 # Fichiers système
 .DS_Store
 
 *.exe
+
+*.out
