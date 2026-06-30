@@ -12,7 +12,7 @@ TARGET = $(TARGET_DIR)/lith
 ifeq ($(OS),Windows_NT)
     LIBS = -lws2_32
     TARGET := $(TARGET).exe
-    MKDIR = if not exist $(TARGET_DIR) mkdir $(TARGET_DIR)
+    MKDIR = mkdir -p $(TARGET_DIR)
 else
     LIBS = 
     MKDIR = mkdir -p $(TARGET_DIR)
@@ -30,7 +30,7 @@ all: $(TARGET)
 
 # 4. Édition de liens (génère l'exécutable dans bin/)
 $(TARGET): $(OBJ)
-	$(MKDIR)
+	-@$(MKDIR)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ) $(LIBS)
 
 # 5. Règle de compilation des fichiers objets (.c -> .o)
@@ -40,16 +40,9 @@ $(TARGET): $(OBJ)
 # 6. Inclusion des dépendances réelles générées par GCC
 -include $(DEPS)
 
-# 7. Nettoyage portable et robuste des artefacts de build
+# 7. Nettoyage universel et robuste (compatible sh/bash de w64devkit & Linux)
 clean:
-ifeq ($(OS),Windows_NT)
-	-@if exist src\*.o del /q /s src\*.o >nul 2>&1
-	-@if exist src\server\*.o del /q /s src\server\*.o >nul 2>&1
-	-@if exist src\*.d del /q /s src\*.d >nul 2>&1
-	-@if exist src\server\*.d del /q /s src\server\*.d >nul 2>&1
-	-@if exist $(TARGET_DIR) del /q $(TARGET_DIR)\* >nul 2>&1
-else
-	rm -f src/*.o src/server/*.o src/*.d src/server/*.d $(TARGET_DIR)/*
-endif
+	-@rm -f src/*.o src/server/*.o src/*.d src/server/*.d $(TARGET_DIR)/* 2>/dev/null || true
+	-@rm -f src\*.o src\server\*.o src\*.d src\server\*.d $(TARGET_DIR)\* 2>/dev/null || true
 
 .PHONY: all clean
