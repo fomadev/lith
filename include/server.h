@@ -1,8 +1,3 @@
-/* * Copyright (c) 2026 Fordi / FomaDev. 
- * Licensed under FomaDev Public License.
- * See LICENSE file in the project root for full license information.
- */
-
 #ifndef SERVER_H
 #define SERVER_H
 
@@ -16,12 +11,12 @@
     typedef int socklen_t;
 #else
     #include <sys/socket.h>
-    #include <sys/time.h>     // <--- AJOUT CRUCIAL ICI pour définir struct timeval
+    #include <sys/time.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <unistd.h>
     typedef int socket_t;
-    typedef socklen_t system_socklen_t; // Évite les conflits de types selon les POSIX
+    typedef socklen_t system_socklen_t;
 #endif
 
 #include <pthread.h>
@@ -36,6 +31,11 @@ typedef struct {
     socket_t client_socket;
     struct sockaddr_in client_address;
 } ClientContext;
+
+typedef struct {
+    ClientContext base_ctx;
+    char public_dir[256];
+} ExpandedClientContext;
 
 /* Cycle de vie du serveur réseau */
 int lith_init_server(const ServerConfig *config);
