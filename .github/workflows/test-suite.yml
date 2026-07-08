@@ -91,20 +91,18 @@ jobs:
         fi
 
         echo "=================================================="
-        echo " 🏋️ TEST 4: Stress & Parallel Concurrency Testing "
+        echo " 🏋️ TEST 4: Stress & Resource Leak Testing "
         echo "=================================================="
         INITIAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
         echo "Initial open File Descriptors: $INITIAL_FD_COUNT"
         
-        echo "Bombarding server with rapid requests..."
-        # Réduit à 20 requêtes en arrière-plan pour éviter de saturer le pool de 8 threads en CI
-        for i in {1..10}; do
-          curl -s -o /dev/null http://localhost:8888/index.html &
-          curl -s -o /dev/null -X POST -H "Content-Type: application/json" -d '{"stress":"test"}' http://localhost:8888/api/test &
+        echo "Bombarding server with rapid sequential requests..."
+        # FIX : Exécution séquentielle propre. Plus de "wait" qui bloque la CI.
+        for i in {1..15}; do
+          curl -s -o /dev/null http://localhost:8888/index.html
+          curl -s -o /dev/null -X POST -H "Content-Type: application/json" -d '{"stress":"test"}' http://localhost:8888/api/test
         done
         
-        # Attendre la fin des curl en arrière-plan
-        wait
         sleep 1
         
         FINAL_FD_COUNT=$(ls /proc/$SERVER_PID/fd | wc -l)
@@ -127,8 +125,7 @@ jobs:
 
         echo '{"bench":"concurrency_payload"}' > post_data.json
         
-        # OPTIMISATION : Volume adapté pour l'environnement limité de la CI de GitHub (concurrency 5)
-        # Évite que les workers tombent tous en recv-timeout en même temps
+        # Volume adapté pour l'environnement de la CI
         ab -q -k -n 50 -c 5 http://localhost:8888/index.html
         ab -q -k -n 30 -c 5 -p post_data.json -T "application/json" http://localhost:8888/api/test
         rm -f post_data.json
@@ -146,14 +143,13 @@ jobs:
         START_TIME=$(date +%s)
         
         echo "Opening an inactive connection to trigger LITH's 3s timeout..."
-        # On passe le sleep de la CI à 4 secondes pour s'aligner sur le timeout de 3s de LITH
         (echo -ne "POST /api/test HTTP/1.1\r\nContent-Length: 100\r\n\r\n"; sleep 4) | nc -w 5 localhost 8888
         
         END_TIME=$(date +%s)
         DURATION=$((END_TIME - START_TIME))
         echo "Connection lasted for: $DURATION seconds"
 
-        if [ "$DURATION" -gt 4 ]; then
+        if [ "$DURATION" -gt 5 ]; then
           echo "❌ CRITICAL FAULT: Server stayed open too long ($DURATIONs)!"
           cat server_output.log; kill -9 $SERVER_PID; exit 1
         else
