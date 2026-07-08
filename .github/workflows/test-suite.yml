@@ -2,9 +2,9 @@ name: Functional Test Suite
 
 on:
   push:
-    branches: [ "main", "test-suite" ]
+    branches: [ "main", "test", "test-suite" ]
   pull_request:
-    branches: [ "main", "test-suite" ]
+    branches: [ "main", "test", "test-suite" ]
   workflow_dispatch:
 
 jobs:
@@ -36,11 +36,11 @@ jobs:
     - name: Execute Network Test Suite
       shell: bash
       run: |
-        # 1. Démarrage du serveur en arrière-plan
-        ./bin/lith &
+        # 1. Démarrage du serveur avec la commande explicite v1.0.7 (Routage CLI)
+        ./bin/lith start &
         SERVER_PID=$!
         
-        # Laisser le temps au socket de faire son bind()
+        # Laisser le temps au socket et au Thread Pool de s'initialiser
         sleep 1
         
         echo "=================================================="
@@ -68,7 +68,7 @@ jobs:
         fi
 
         echo "=================================================="
-        echo " TEST 2: Validation HTTP POST (Engine v1.0.6) "
+        echo " TEST 2: Validation HTTP POST (Engine v1.0.7) "
         echo "=================================================="
         POST_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"test":"ci_payload"}' http://localhost:8888/api/test)
         
