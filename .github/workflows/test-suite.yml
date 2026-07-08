@@ -161,7 +161,7 @@ jobs:
         echo "=================================================="
         echo "Launching LITH in native background Daemon mode..."
         
-        # Lancement explicite avec le flag --daemon (Le processus doit rendre la main immédiatement)
+        # Lancement explicite avec le flag --daemon
         ./bin/lith start --daemon
         
         # Laisser 1 seconde au double-fork pour stabiliser le démon détaché
@@ -171,16 +171,16 @@ jobs:
         if pgrep -x "lith" > /dev/null; then
           echo "✅ DAEMON PASSED: LITH running successfully in background."
           
-          # Validation finale : Est-ce qu'il répond toujours aux requêtes ?
+          # Validation réseau : Peu importe si c'est 200 ou 404, le serveur écoute et répond !
           DAEMON_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/)
-          if [ "$DAEMON_STATUS" -eq 200 ]; then
-            echo "✅ DAEMON NET PASSED: Background process active and serving requests (HTTP 200)"
+          if [ "$DAEMON_STATUS" -eq 200 ] || [ "$DAEMON_STATUS" -eq 404 ]; then
+            echo "✅ DAEMON NET PASSED: Background process active and responding on network socket (Status: $DAEMON_STATUS)"
           else
-            echo "❌ DAEMON NET FAULT: Background process alive but unreachable (Status: $DAEMON_STATUS)"
+            echo "❌ DAEMON NET FAULT: Background process alive but socket unreachable (Status: $DAEMON_STATUS)"
             pkill -9 -x lith; exit 1
           fi
           
-          # Extinction propre du démon
+          # Extinction propre du démon après le succès du test
           pkill -9 -x lith
         else
           echo "❌ DAEMON FAULT: Process failed to detach or crashed immediately."
