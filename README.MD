@@ -1,19 +1,19 @@
 # LITH - Light HTTP Server
 
-LITH is a minimalist, high-performance, multi-threaded HTTP server implemented in standard C11. Engineered to be exceptionally lightweight, modular, and portable, it provides native support for Windows (via w64devkit/MinGW-w64 and Winsock2), macOS, and Linux systems. It is designed with robust network lifecycle management, native multi-threading, and zero external software dependencies.
+LITH is a minimalist, high-performance, multi-threaded HTTP engine implemented in standard C11. Engineered to be exceptionally lightweight, modular, and portable, it provides native support for Windows (via w64devkit/MinGW-w64 and Winsock2), macOS, and Linux systems. It is designed with robust network lifecycle management, resource-efficient concurrency handlers, and zero external software dependencies.
 
 ## Key Features
 
-- **Multi-threaded Architecture**: Utilizes POSIX threads (`pthreads`) to handle multiple simultaneous client connections efficiently, preventing the core network listener from blocking.
-- **HTTP Keep-Alive (v1.0.6 Persistent Connections)**: Features an intelligent network loop that keeps client sockets active for consecutive resource transfers. Includes case-insensitive header parsing and automated connection recycling to maximize performance and minimize TCP handshake overhead.
-- **Advanced I/O Engine (POST Payload Streaming)**: Features automated network stream processing to fully parse incoming HTTP `POST` requests, including chunked or fragmented payloads using precise `Content-Length` validation and multi-stage buffer safety checks.
-- **Modular Directory Architecture**: Separates the core networking engine, HTTP state parsing, and application routing from configuration management and utility modules.
-- **External Configuration Engine**: Dynamically loads runtime settings from a `lith.conf` configuration file without requiring recompilation.
+- **Architectural Thread Pool (v1.0.7)**: Instantiates a fixed set of permanent, isolated worker threads upon boot. Eliminates runtime thread spawning/destruction overhead by utilizing a synchronized FIFO task queue managed via POSIX condition variables (`pthread_cond_t`) and mutexes (`pthread_mutex_t`).
+- **High-Throughput Main Loop**: Features an optimized accept-loop that offloads incoming sockets instantly to the shared worker pool, freeing the core network thread to handle maximum incoming connection density per second.
+- **HTTP Keep-Alive Persistent Connections**: Keeps client sockets active for consecutive resource transfers within a secure window. Features automated connection recycling to maximize performance and minimize TCP handshake overhead.
+- **Anti-Slowloris Security Guard**: Arms incoming sockets with a rigid 3-second network receive timeout (`SO_RCVTIMEO`) directly on the accept layer, ensuring resilient defense against slow-connection or resource-exhaustion vector attacks.
+- **Advanced I/O POST Payload Streaming**: Features automated network stream processing to fully parse incoming HTTP `POST` requests, handling chunked or fragmented bodies using precise `Content-Length` tracking and multi-stage buffer safety boundaries.
+- **Thread-Safe Isolated Configuration**: Passes critical runtime data (such as the web root asset path) directly inside the thread pool context, completely removing reliance on shared static global variables or race-prone states.
+- **External Configuration Engine**: Dynamically loads runtime environments from a `lith.conf` configuration file without requiring binary recompilation.
 - **Dynamic MIME Type Resolution**: Automatically maps file extensions to their corresponding IANA media types (`.html`, `.css`, `.js`, `.json`, `.png`, etc.) for proper browser rendering.
-- **Unified Security & Path Filters**: Protects against directory traversal attacks by detecting and rejecting malicious relative path patterns such as `..`.
-- **Graceful Port Guard**: Detects socket binding conflicts during startup and exits gracefully with informative logs.
+- **Unified Security & Path Filters**: Protects against directory traversal vulnerabilities by parsing, validating, and rejecting malicious relative path patterns such as `..`.
 - **Unified Error Canvas Layouts**: Serves clean, dark-themed HTML error pages for common HTTP status codes (`400`, `403`, `404`, `408`, and `500`).
-- **Zero Dependencies**: Built exclusively on standard operating system APIs, ensuring an ultra-minimal binary footprint.
 
 ---
 
@@ -21,7 +21,7 @@ LITH is a minimalist, high-performance, multi-threaded HTTP server implemented i
 
 ### 1. Build Compilation
 
-LITH ships with a highly robust, cross-platform `Makefile` optimized for GNU Make. It automatically handles header dependency generation (`-MMD -MP`) and natively adapts to both Linux/macOS shells and Windows environments (like `w64devkit`).
+LITH ships with a highly robust, cross-platform `Makefile` optimized for GNU Make. It automatically handles header dependency generation (`-MMD -MP`) and natively adapts to both Linux/macOS shells and Windows environments.
 
 To compile the project from scratch:
 
@@ -42,26 +42,25 @@ PORT=8090
 PUBLIC_DIR=public
 ```
 
-### 3. Deployment
+### 3. Deployment & CLI Usage
 
-Place your web assets inside the configured `public/` directory.
+Place your web assets inside the configured `public/` directory(e.g., `public/index.html`)..
 
-Start the server:
-
-```bash
-bin/lith
-```
-
-Optionally, override the configured port at runtime:
+LITH features a modern, explicit CLI command architecture. To execute the engine, you must use the start command routing path:
 
 ```bash
-bin/lith 8005
+# Launch the engine using defaults or configuration settings
+bin/lith start
+
+# Override the configured port dynamically via runtime arguments
+bin/lith start 8080
 ```
 
-Open your browser and navigate to:
+To display context help or print the build version string:
 
-```text
-http://localhost:8005
+```bash
+bin/lith --help
+bin/lith --version
 ```
 
 ---
@@ -72,10 +71,12 @@ http://localhost:8005
 .
 ├── bin/                 # Output directory for compiled executable binaries
 ├── include/             # Header files, macros, and cross-platform abstractions
+│   ├── common.h         # Centralized data structures, configuration state, and global version definitions
 │   ├── http_parser.h    # HTTP Request structures, MIME mapping, and error pages
 │   ├── http_router.h    # Application routing and static file rendering logic
 │   ├── logger.h         # Centralized thread-safe logging interface
-│   └── server.h         # Main socket listener and configuration structures
+│   ├── server.h         # Thread pool definitions, worker prototypes, and socket contexts
+│   └── server_utils.h   # Multiplatform OS socket wrappers (lith_close_socket)
 ├── public/              # Static web root (HTML, CSS, JS, Assets)
 ├── src/
 │   ├── server/          # Configuration parser and server utility modules
@@ -84,9 +85,9 @@ http://localhost:8005
 │   ├── http_parser.c    # Case-insensitive protocol parser
 │   ├── http_router.c    # Request handler, route dispatcher, and security validation
 │   ├── logger.c         # Formatted terminal output subsystem
-│   ├── main.c           # Application bootstrap and runtime arguments handler
-│   ├── server.c         # TCP socket initialization (bind, listen, accept)
-│   └── server_worker.c  # Persistent worker threads loop (Keep-Alive implementation)
+│   ├── main.c           # Application bootstrap, signal trapping, and CLI routing argument handler
+│   ├── server.c         # TCP socket initialization, reuse options, and accept-push loop
+│   └── server_worker.c  # Persistent pool worker thread loop, queue management, and request routing
 ├── lith.conf            # Runtime configuration file
 └── Makefile             # Universal, silent multi-platform automated build script
 ```

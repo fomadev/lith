@@ -65,6 +65,8 @@ int main(int argc, char *argv[]) {
     // Cas 2 : Traitement des drapeaux globaux (Flags d'information)
     if (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0) {
         printf("LITH Engine Version: %s\n", LITH_VERSION);
+        printf("Copyright (c) FomaDev\n");
+        printf("Brought to you by Fordima Inc.\n");
         return 0;
     }
 
