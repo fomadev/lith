@@ -22,3 +22,5 @@ obj/
 *.exe
 
 *.out
+
+*.res

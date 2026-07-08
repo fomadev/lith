@@ -1,0 +1,30 @@
+#include <windows.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     1,0,7,0
+PRODUCTVERSION  1,0,7,0
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0x0L
+FILEOS          VOS__WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0" // Code langue : Anglais (États-Unis)
+        BEGIN
+            VALUE "CompanyName",      "FomaDev (Fordima Inc.)"
+            VALUE "FileDescription",  "LITH Engine CLI"
+            VALUE "FileVersion",      "1.0.7"
+            VALUE "InternalName",     "lith"
+            VALUE "LegalCopyright",   "Copyright (c) 2026 FomaDev, a Fordima Inc. company."
+            VALUE "OriginalFilename", "lith.exe"
+            VALUE "ProductName",      "LITH Engine"
+            VALUE "ProductVersion",   "1.0.7"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
