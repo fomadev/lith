@@ -151,7 +151,7 @@ jobs:
         
         echo "Opening an inactive connection to trigger LITH's 3s timeout..."
         
-        nc -w 5 localhost 8888 << EOF
+        nc -w 4 localhost 8888 << EOF
         POST /api/test HTTP/1.1
         Content-Length: 100
         EOF

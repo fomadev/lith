@@ -39,7 +39,7 @@ void handle_sigint(int sig) {
  */
 void display_usage() {
     printf("======================================================================\n");
-    printf(" 🚀 LITH CLI - Minimalist High-Performance HTTP Engine v%s\n", LITH_VERSION);
+    printf(" LITH CLI - Minimalist High-Performance HTTP Engine v%s\n", LITH_VERSION);
     printf("======================================================================\n");
     printf("Usage: lith [command] [options]\n\n");
     printf("Commands:\n");
@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Cas par défaut : Commande ou drapeau inconnu
-    fprintf(stderr, "🚨 Error: Unknown command or option '%s'.\n\n", argv[1]);
+    fprintf(stderr, "Error: Unknown command or option '%s'.\n\n", argv[1]);
     display_usage();
     return 1;
 }
