@@ -36,7 +36,7 @@ jobs:
     - name: Execute Network Test Suite
       shell: bash
       run: |
-        # 1. Démarrage du serveur avec la commande explicite v1.0.7
+        # 1. Démarrage du serveur avec la commande explicite
         ./bin/lith start > server_output.log 2>&1 &
         SERVER_PID=$!
         
@@ -66,7 +66,7 @@ jobs:
         fi
 
         echo "=================================================="
-        echo " TEST 2: Validation HTTP POST (Engine v1.0.7) "
+        echo " TEST 2: Validation HTTP POST "
         echo "=================================================="
         POST_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"test":"ci_payload"}' http://localhost:8888/api/test)
         STATUS_JSON=$(echo "$POST_RESPONSE" | jq -r '.status' 2>/dev/null)
@@ -97,7 +97,6 @@ jobs:
         echo "Initial open File Descriptors: $INITIAL_FD_COUNT"
         
         echo "Bombarding server with rapid sequential requests..."
-        # FIX : Exécution séquentielle propre. Plus de "wait" qui bloque la CI.
         for i in {1..15}; do
           curl -s -o /dev/null http://localhost:8888/index.html
           curl -s -o /dev/null -X POST -H "Content-Type: application/json" -d '{"stress":"test"}' http://localhost:8888/api/test
@@ -124,8 +123,6 @@ jobs:
         fi
 
         echo '{"bench":"concurrency_payload"}' > post_data.json
-        
-        # Volume adapté pour l'environnement de la CI
         ab -q -k -n 50 -c 5 http://localhost:8888/index.html
         ab -q -k -n 30 -c 5 -p post_data.json -T "application/json" http://localhost:8888/api/test
         rm -f post_data.json
@@ -156,8 +153,41 @@ jobs:
           echo "✅ PASSED: Socket timeout successfully triggered in $DURATION seconds."
         fi
 
+        # Arrêt du serveur de premier plan pour préparer le test du Démon
+        kill -9 $SERVER_PID
+
+        echo "=================================================="
+        echo " 😈 TEST 7: Daemon Mode Execution & Detachment "
+        echo "=================================================="
+        echo "Launching LITH in native background Daemon mode..."
+        
+        # Lancement explicite avec le flag --daemon (Le processus doit rendre la main immédiatement)
+        ./bin/lith start --daemon
+        
+        # Laisser 1 seconde au double-fork pour stabiliser le démon détaché
+        sleep 1
+        
+        # Vérification si un processus nommé 'lith' tourne en tâche de fond
+        if pgrep -x "lith" > /dev/null; then
+          echo "✅ DAEMON PASSED: LITH running successfully in background."
+          
+          # Validation finale : Est-ce qu'il répond toujours aux requêtes ?
+          DAEMON_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888/)
+          if [ "$DAEMON_STATUS" -eq 200 ]; then
+            echo "✅ DAEMON NET PASSED: Background process active and serving requests (HTTP 200)"
+          else
+            echo "❌ DAEMON NET FAULT: Background process alive but unreachable (Status: $DAEMON_STATUS)"
+            pkill -9 -x lith; exit 1
+          fi
+          
+          # Extinction propre du démon
+          pkill -9 -x lith
+        else
+          echo "❌ DAEMON FAULT: Process failed to detach or crashed immediately."
+          exit 1
+        fi
+
         # Fin globale
         echo "=================================================="
-        echo " 🎉 All 7 advanced industrial tests passed successfully!"
+        echo " 🎉 All advanced industrial tests passed successfully!"
         echo "=================================================="
-        kill -9 $SERVER_PID
