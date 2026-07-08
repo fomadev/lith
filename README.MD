@@ -95,48 +95,14 @@ bin/lith --version
 ---
 
 ## Technical Specifications
-
-<table>
-    <thead>
-        <tr>
-            <th>Parameter</th>
-            <th>Default Value</th>
-            <th>Description</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><code>LITH_VERSION</code></td>
-            <td><code>1.0.6</code></td>
-            <td>Current stable release version</td>
-        </tr>
-        <tr>
-            <td><code>BUFFER_SIZE</code></td>
-            <td><code>4096 bytes</code></td>
-            <td>Standard socket read/write block buffer size</td>
-        </tr>
-        <tr>
-            <td>Maximum Buffer</td>
-            <td><code>16 KB</code></td>
-            <td>Maximum cumulative buffer space for HTTP headers and POST bodies</td>
-        </tr>
-        <tr>
-            <td><code>BACKLOG</code></td>
-            <td><code>10</code></td>
-            <td>Maximum number of pending client connections in the listen queue</td>
-        </tr>
-        <tr>
-            <td>Keep-Alive Timeout</td>
-            <td><code>3 seconds</code></td>
-            <td><code>SO_RCVTIMEO</code> window before cleanly recycling a persistent socket</td>
-        </tr>
-        <tr>
-            <td><code>MAX_KEEP_ALIVE_REQUESTS</code></td>
-            <td><code>100</code></td>
-            <td>Maximum requests processed per single client TCP session</td>
-        </tr>
-    </tbody>
-</table>
+| Parameter | Default Value | Description |
+|-----------|---------------|-------------|
+| `LITH_VERSION` | `1.0.7` | Current stable release version |
+| `BUFFER_SIZE` | `4096 bytes` | Standard socket read/write block buffer size |
+| Maximum Buffer | `16 KB` | Maximum cumulative buffer space for HTTP headers and POST bodies |
+| `BACKLOG` | `10` | Maximum number of pending client connections in the listen queue |
+| Keep-Alive Timeout | `3 seconds` | `SO_RCVTIMEO` window before cleanly recycling a persistent socket |
+| `MAX_KEEP_ALIVE_REQUESTS` | `100` | Maximum requests processed per single client TCP session |
 
 ## License
 
