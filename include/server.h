@@ -30,6 +30,7 @@ int lith_daemonize(void);
 #include <pthread.h>
 #include <stdbool.h>
 #include "common.h" // Contient ServerConfig
+#include "cache.h"  // Intégration du module de cache v1.0.9
 
 #define DEFAULT_PORT 8090
 #define BACKLOG 10
@@ -53,17 +54,11 @@ typedef struct {
  * STRUCTURES DU THREAD POOL (v1.0.7)
  * ============================================================================== */
 
-/**
- * Nœud de la file d'attente (FIFO) pour stocker les connexions entrantes
- */
 typedef struct Node {
     socket_t socket;
     struct Node *next;
 } Node_t;
 
-/**
- * Gestionnaire du pool de threads et de la synchronisation concurrentielle
- */
 typedef struct {
     Node_t *head;           // Premier élément de la file (extraction)
     Node_t *tail;           // Dernier élément de la file (insertion)
@@ -72,6 +67,7 @@ typedef struct {
     pthread_cond_t cond;    // Variable de condition pour réveiller les workers
     bool shutdown;          // Drapeau d'arrêt global du serveur
     char public_dir[256];   // Copie locale du répertoire public pour les workers
+    LithCache ram_cache;    // <--- LE CACHE REJOINT LE CONTEXTE DES WORKERS (v1.0.9)
 } ThreadPool_t;
 
 /* ==============================================================================
