@@ -59,7 +59,7 @@ int lith_init_server(const ServerConfig *config) {
 
     if (listen(server_fd, BACKLOG) < 0) {
         lith_log(LOG_ERROR, "Listen failed");
-        box_close_socket(server_fd);
+        lith_close_socket(server_fd); // <-- Correction de la coquille ici
         return -1;
     }
 
