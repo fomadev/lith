@@ -8,6 +8,7 @@
 #include "common.h"
 #include "server_utils.h"
 #include "logger.h"
+#include "cache.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,7 +59,7 @@ int lith_init_server(const ServerConfig *config) {
 
     if (listen(server_fd, BACKLOG) < 0) {
         lith_log(LOG_ERROR, "Listen failed");
-        lith_close_socket(server_fd);
+        box_close_socket(server_fd);
         return -1;
     }
 
@@ -105,8 +106,45 @@ void lith_start_server(int server_fd, const ServerConfig *config) {
         setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, (const struct timeval *)&tv, sizeof(tv));
 #endif
 
-        // 3. MAINTENANT AVEC v1.0.7 : Injection ultra-rapide dans la file d'attente concurrente
-        // Le thread principal se libère instantanément sans instancier ou détruire de thread.
+        // 3. Injection instantanée dans la file d'attente concurrente du pool
         thread_pool_push(&global_pool, client_socket);
     }
+}
+
+/**
+ * Initialise le pool de workers et pré-charge le cache statique RAM (v1.0.9)
+ */
+void thread_pool_init(ThreadPool_t *pool, int num_threads, const char *public_dir) {
+    pool->head = NULL;
+    pool->tail = NULL;
+    pool->size = 0;
+    pool->shutdown = false;
+    
+    // Sauvegarde du chemin du répertoire public
+    strncpy(pool->public_dir, public_dir, sizeof(pool->public_dir) - 1);
+    pool->public_dir[sizeof(pool->public_dir) - 1] = '\0';
+
+    pthread_mutex_init(&pool->mutex, NULL);
+    pthread_cond_init(&pool->cond, NULL);
+
+    // Initialisation et allocation du sous-système de Cache RAM
+    lith_cache_init(&pool->ram_cache);
+    
+    // Warm-up : cartographie mémoire des fichiers stratégiques du dossier public/
+    char path_buf[512];
+    snprintf(path_buf, sizeof(path_buf), "%s/index.html", public_dir);
+    lith_cache_add(&pool->ram_cache, path_buf, "text/html");
+    
+    snprintf(path_buf, sizeof(path_buf), "%s/style.css", public_dir);
+    lith_cache_add(&pool->ram_cache, path_buf, "text/css");
+
+    // Instanciation des Threads Workers fixes
+    for (int i = 0; i < num_threads; i++) {
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, lith_client_handler, (void *)pool) == 0) {
+            pthread_detach(thread); // Autogestion du cycle de vie des threads par le système
+        }
+    }
+    
+    lith_log(LOG_INFO, "Thread pool initialized successfully with %d active workers.", num_threads);
 }
