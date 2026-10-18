@@ -1,70 +1,101 @@
 # ==============================================================================
-#  LITH Engine - Multi-platform Automated Build Pipeline (Universal Subsystem)
+#  LITH 1.0.0 - Makefile multiplateforme (Linux, macOS, Windows/MinGW)
+#
+#  make              compile bin/lith (ou bin/lith.exe)
+#  make test         compile et lance les tests unitaires
+#  make integration  lance les tests d'intégration (bash + curl)
+#  make DEBUG=1      compilation de débogage (+ sanitizers hors Windows)
+#  make STATIC=1     exécutable statique (Docker, Alpine)
+#  make install      installe dans $(PREFIX)/bin (Linux/macOS)
+#  make clean        supprime les fichiers générés
 # ==============================================================================
 
-CC = gcc
-CFLAGS = -Wall -Wextra -std=c11 -D_GNU_SOURCE -pthread -MMD -MP
-INCLUDES = -Iinclude
-TARGET_DIR = bin
-
-# 1. Sources communes à toutes les plateformes (Ajout du module cache.c)
-SRCS = src/main.c \
-       src/server.c \
-       src/server_worker.c \
-       src/http_parser.c \
-       src/http_router.c \
-       src/logger.c \
-       src/server/config.c \
-       src/server/utils.c \
-       src/server/cache.c
-
-# Initialisation des variables spécifiques aux ressources Windows
-RES_OBJ = 
-
-# 2. Détection de l'OS et ajustement des dépendances / commandes systèmes
-ifeq ($(OS),Windows_NT)
-    TARGET = $(TARGET_DIR)/lith.exe
-    LIBS = -lws2_32
-    MKDIR = mkdir -p $(TARGET_DIR)
-    
-    # Compilation des ressources icones/méta pour l'exécutable Windows
-    WINDRES = windres
-    RES_OBJ = resources.res
-else
-    TARGET = $(TARGET_DIR)/lith
-    LIBS = -pthread
-    MKDIR = mkdir -p $(TARGET_DIR)
-    
-    # Inclusion exclusive du fichier démon uniquement sous UNIX
-    SRCS += src/daemon.c
+CC       ?= gcc
+ifeq ($(origin CC),default)
+    CC = gcc
 endif
 
-# Déduction automatique des fichiers objets et dépendances (.d)
-OBJS = $(SRCS:.c=.o)
-DEPS = $(SRCS:.c=.d)
+PREFIX   ?= /usr/local
+BIN_DIR   = bin
+OBJ_DIR   = build
 
-# 3. Règle principale
+# CFLAGS / LDFLAGS restent libres pour l'utilisateur (make CFLAGS="-O3 -march=native").
+CFLAGS   ?= -O2
+LDFLAGS  ?=
+LITH_CFLAGS  = -std=c11 -Wall -Wextra -pthread -MMD -MP -Iinclude
+LITH_LDFLAGS =
+LIBS      = -pthread
+
+SRCS      = $(wildcard src/*.c)
+OBJS      = $(patsubst src/%.c,$(OBJ_DIR)/%.o,$(SRCS))
+LIB_OBJS  = $(filter-out $(OBJ_DIR)/main.o,$(OBJS))
+DEPS      = $(OBJS:.o=.d)
+
+ifeq ($(OS),Windows_NT)
+    EXE       = .exe
+    LITH_CFLAGS += -D_WIN32_WINNT=0x0601 -D__USE_MINGW_ANSI_STDIO=1
+    LIBS     += -lws2_32
+    WINDRES  ?= windres
+    RES_OBJ   = $(OBJ_DIR)/resources.res
+else
+    EXE       =
+    LITH_CFLAGS += -D_GNU_SOURCE
+    RES_OBJ   =
+endif
+
+ifeq ($(DEBUG),1)
+    LITH_CFLAGS += -O0 -g
+    ifneq ($(OS),Windows_NT)
+        LITH_CFLAGS  += -fsanitize=address,undefined -fno-omit-frame-pointer
+        LITH_LDFLAGS += -fsanitize=address,undefined
+    endif
+endif
+
+ifeq ($(STATIC),1)
+    LITH_LDFLAGS += -static
+endif
+
+TARGET      = $(BIN_DIR)/lith$(EXE)
+TEST_TARGET = $(BIN_DIR)/unit_tests$(EXE)
+
+.PHONY: all test integration install uninstall clean
+
 all: $(TARGET)
 
-# 4. Édition de liens (Génère l'exécutable final)
 $(TARGET): $(OBJS) $(RES_OBJ)
-	@$(MKDIR)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJS) $(RES_OBJ) $(LIBS)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(LITH_CFLAGS) -o $@ $(OBJS) $(RES_OBJ) $(LDFLAGS) $(LITH_LDFLAGS) $(LIBS)
 
-# 5. Règle de compilation des ressources Windows (.rc -> .res)
-%.res: %.rc
+$(OBJ_DIR)/%.o: src/%.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(LITH_CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/resources.res: resources.rc app_icon.ico
+	@mkdir -p $(OBJ_DIR)
 	$(WINDRES) $< -O coff -o $@
 
-# 6. Règle de compilation des fichiers objets (.c -> .o)
-%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(OBJ_DIR)/unit_tests.o: tests/unit_tests.c
+	@mkdir -p $(OBJ_DIR)
+	$(CC) $(CFLAGS) $(LITH_CFLAGS) -c $< -o $@
 
-# 7. Inclusion des dépendances réelles générées dynamiquement par GCC
--include $(DEPS)
+$(TEST_TARGET): $(LIB_OBJS) $(OBJ_DIR)/unit_tests.o
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(LITH_CFLAGS) -o $@ $^ $(LDFLAGS) $(LITH_LDFLAGS) $(LIBS)
 
-# 8. Nettoyage universel, robuste et multi-plateforme
+test: $(TEST_TARGET)
+	./$(TEST_TARGET)
+
+integration: $(TARGET)
+	bash tests/integration.sh
+
+install: $(TARGET)
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m 755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/lith
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/bin/lith
+
 clean:
-	-@rm -f src/*.o src/server/*.o src/*.d src/server/*.d *.res $(TARGET_DIR)/* 2>/dev/null || true
-	-@rm -f src\*.o src\server\*.o src\*.d src\server\*.d *.res $(TARGET_DIR)\* 2>/dev/null || true
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
-.PHONY: all clean
+-include $(DEPS) $(OBJ_DIR)/unit_tests.d

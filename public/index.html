@@ -3,108 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LITH Server - Dashboard</title>
+    <title>LITH - Ça fonctionne !</title>
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-color: #f8fafc;
-            --accent-color: #10b981;
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #10b981;
             --accent-hover: #059669;
+            --line: #334155;
         }
-
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem 1rem;
         }
-
-        .container {
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            max-width: 560px;
+            width: 100%;
+            padding: 2.5rem 2rem;
             text-align: center;
-            background: var(--card-bg);
-            padding: 3rem;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
-            width: 90%;
         }
-
         .logo {
-            font-size: 3.5rem;
-            margin: 0;
+            font-size: 3.2rem;
             font-weight: 800;
-            letter-spacing: 2px;
-            color: var(--accent-color);
-            text-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+            letter-spacing: 3px;
+            color: var(--accent);
+            margin: 0;
         }
-
         .badge {
             display: inline-block;
-            background-color: rgba(16, 185, 129, 0.1);
-            color: var(--accent-color);
-            padding: 0.25rem 0.75rem;
-            border-radius: 50px;
-            font-size: 0.85rem;
+            margin-top: .5rem;
+            padding: .2rem .8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(16, 185, 129, .3);
+            background: rgba(16, 185, 129, .1);
+            color: var(--accent);
+            font-size: .85rem;
             font-weight: 600;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            margin-top: 0.5rem;
         }
-
-        h2 {
-            font-size: 1.5rem;
-            margin-top: 2rem;
-            margin-bottom: 0.5rem;
+        h2 { font-size: 1.4rem; margin: 1.8rem 0 .5rem; }
+        p { color: var(--muted); line-height: 1.6; margin: 0 0 1.2rem; }
+        ul {
+            text-align: left;
+            color: var(--muted);
+            line-height: 1.8;
+            margin: 0 0 1.8rem;
+            padding-left: 1.2rem;
         }
-
-        p {
-            color: #94a3b8;
-            line-height: 1.6;
-            margin-bottom: 2rem;
+        code {
+            background: #0f172a;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: .1rem .35rem;
+            font-size: .9em;
+            color: var(--text);
         }
-
         .btn {
             display: inline-block;
-            background-color: var(--accent-color);
+            background: var(--accent);
             color: #fff;
             text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 6px;
+            padding: .7rem 1.4rem;
+            border-radius: 8px;
             font-weight: 600;
-            transition: background-color 0.2s ease;
+            transition: background .2s ease;
         }
-
-        .btn:hover {
-            background-color: var(--accent-hover);
-        }
-
-        footer {
-            margin-top: 2.5rem;
-            font-size: 0.8rem;
-            color: #64748b;
-        }
+        .btn:hover { background: var(--accent-hover); }
+        footer { margin-top: 2rem; font-size: .8rem; color: #64748b; }
     </style>
 </head>
 <body>
-
-    <div class="container">
+    <main class="card">
         <h1 class="logo">LITH</h1>
-        <span class="badge">v1.0.9 - Secured</span>
-        
-        <h2>Your C server is working!</h2>
-        <p>The lightweight HTTP server intercepted your request, parsed the headers, and successfully returned this HTML file. Directory traversal protection is enabled.</p>
-        
-        <a href="https://github.com/fomadev/lith" target="_blank" class="btn">View on GitHub</a>
-        
-        <footer>
-            Powered by LITH's multi-threaded engine
-        </footer>
-    </div>
+        <span class="badge">1.0.0</span>
 
+        <h2>Votre serveur fonctionne !</h2>
+        <p>LITH a reçu votre requête, l'a analysée et vous a renvoyé ce fichier
+           <code>public/index.html</code>.</p>
+
+        <ul>
+            <li>Remplacez le contenu du dossier <code>public/</code> par votre site.</li>
+            <li>Réglez le serveur dans <code>lith.conf</code> (port, cache, sécurité...).</li>
+            <li>Lancez <code>lith start --dev</code> pour recharger la page à chaque modification.</li>
+            <li>Consultez <code>/__lith/status</code> pour voir les statistiques en direct.</li>
+        </ul>
+
+        <a class="btn" href="https://github.com/fomadev/lith" target="_blank" rel="noopener">Voir sur GitHub</a>
+
+        <footer>LITH - serveur HTTP léger écrit en C11, sans dépendance</footer>
+    </main>
 </body>
 </html>
