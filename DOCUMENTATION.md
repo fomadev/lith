@@ -210,7 +210,7 @@ sauf si vous donnez votre adresse réseau à d'autres appareils (voir 6.9).
   peut se placer devant votre application et lui transmettre les requêtes :
   c'est le **proxy inverse** (chapitre 10).
 
-> 💡 Les applications modernes React, Vue, Svelte ou Angular, une fois
+> **Astuce :** Les applications modernes React, Vue, Svelte ou Angular, une fois
 > « construites » (`npm run build`), sont des **sites statiques** : LITH peut
 > les servir directement.
 
@@ -247,7 +247,7 @@ ou le compiler vous-même.
 
    Vous devez voir `LITH 1.0.0`.
 
-> 🍎 **macOS** : au premier lancement, macOS peut bloquer un programme
+> **macOS :** au premier lancement, macOS peut bloquer un programme
 > téléchargé. Autorisez-le dans *Réglages Système → Confidentialité et
 > sécurité*, ou tapez `xattr -d com.apple.quarantine bin/lith`.
 
@@ -387,7 +387,7 @@ Vous voyez quelque chose comme :
 ### 3.3 Ouvrir le site
 
 Ouvrez votre navigateur à l'adresse **<http://localhost:8090>**.
-La page « Ça marche ! » s'affiche. 🎉
+La page « Ça marche ! » s'affiche.
 
 Dans le terminal, une ligne apparaît pour chaque requête :
 
@@ -408,7 +408,7 @@ Ajoutez d'autres fichiers dans `public/` : `public/contact.html` sera
 accessible à `http://localhost:8090/contact.html`, `public/images/logo.png` à
 `http://localhost:8090/images/logo.png`.
 
-> 💡 Pour ne plus avoir à appuyer sur F5, lancez plutôt `lith start --dev`
+> **Astuce :** Pour ne plus avoir à appuyer sur F5, lancez plutôt `lith start --dev`
 > (chapitre 9) : le navigateur se recharge tout seul.
 
 ### 3.5 Arrêter le serveur
@@ -522,7 +522,7 @@ valeurs par défaut. Une clé inconnue ou une valeur invalide est signalée avec
 le numéro de ligne, et LITH refuse de démarrer : vous ne restez jamais avec une
 configuration à moitié appliquée.
 
-> ✅ Après toute modification, lancez `lith check` : il affiche les erreurs et
+> **Conseil :** Après toute modification, lancez `lith check` : il affiche les erreurs et
 > la configuration réellement utilisée.
 
 ### 5.2 Réseau
@@ -675,7 +675,7 @@ printf 'TLS_PORT=8443\nTLS_CERT=cert.pem\nTLS_KEY=key.pem\n' >> lith.conf
 lith start          # puis https://localhost:8443
 ```
 
-> 💡 Sous Git Bash (Windows), préfixez la commande `openssl` par
+> **Astuce :** Sous Git Bash (Windows), préfixez la commande `openssl` par
 > `MSYS_NO_PATHCONV=1` pour que `/CN=localhost` ne soit pas pris pour un chemin.
 
 ---
@@ -904,7 +904,7 @@ Ajoutez ensuite les sources dont vous avez besoin, par exemple
 `CSP=default-src 'self'; img-src 'self' data:; font-src https://fonts.gstatic.com`.
 Ouvrez la console du navigateur (F12) : chaque blocage y est signalé.
 
-> ⚠️ Le rechargement automatique (`--dev`) injecte un petit script dans les
+> **Attention :** Le rechargement automatique (`--dev`) injecte un petit script dans les
 > pages : n'activez pas une CSP stricte en même temps que `--dev`.
 
 ### 8.4 CORS : autoriser d'autres sites à appeler le vôtre
@@ -934,7 +934,7 @@ requête consomme un jeton ; seau vide = réponse `429 Too Many Requests` avec
 `Retry-After: 1`. Une page normale (HTML + CSS + images) passe sans souci ; un
 robot qui envoie des centaines de requêtes est freiné.
 
-> ⚠️ Si LITH est derrière un autre proxy (Caddy, nginx), toutes les requêtes
+> **Attention :** Si LITH est derrière un autre proxy (Caddy, nginx), toutes les requêtes
 > semblent venir de `127.0.0.1` : faites alors la limitation dans ce proxy.
 
 ### 8.6 Protéger une zone par mot de passe
@@ -949,7 +949,7 @@ dessous (`/admin/stats.html`...), mais pas pour `/administration` (le préfixe
 doit être suivi de `/` ou de la fin du chemin). La règle la plus précise
 l'emporte. `AUTH` protège aussi les routes du proxy.
 
-> ⚠️ **Important** : l'authentification Basic envoie le mot de passe à chaque
+> **Important :** l'authentification Basic envoie le mot de passe à chaque
 > requête, simplement encodé (pas chiffré). Sur Internet, utilisez-la
 > **uniquement derrière HTTPS** (chapitre 12.4). Le mot de passe étant écrit en
 > clair dans `lith.conf`, protégez ce fichier (`chmod 600 lith.conf` sous Linux).
@@ -1386,7 +1386,7 @@ rester compilé sans TLS.
 Avec **nginx**, l'équivalent est un bloc `location / { proxy_pass http://127.0.0.1:8090; }`
 dans un serveur configuré avec un certificat (par exemple via `certbot`).
 
-> 💡 Derrière Caddy ou nginx, toutes les requêtes arrivent à LITH depuis
+> **Astuce :** Derrière Caddy ou nginx, toutes les requêtes arrivent à LITH depuis
 > `127.0.0.1` : réglez la limitation de débit dans le proxy de devant, et
 > utilisez `STATUS_AUTH` si vous voulez consulter `/__lith/status` à distance
 > (LITH refuse automatiquement les requêtes relayées sans mot de passe).
@@ -1604,7 +1604,8 @@ pour utiliser LITH.
 - **Tests d'intégration** (`tests/integration.sh`) : de vrais serveurs LITH
   sont lancés, puis interrogés avec `curl` et des connexions TCP brutes :
   fichiers, sécurité, 304, Range, gzip, limites, keep-alive, pipelining,
-  slowloris, proxy avec panne de backend, WebSocket, statistiques. Sous
+  slowloris, CORS, limitation de débit, proxy avec panne de backend, WebSocket
+  et trame de rechargement, statistiques protégées, journal dans un fichier. Sous
   Linux/macOS, s'y ajoutent l'arrêt par `SIGTERM`, le mode démon, l'absence de
   fuite de descripteurs et un test de charge ApacheBench.
 - **Tests HTTPS** (dans `tests/integration.sh`) : avec un exécutable `make TLS=1`,
@@ -1724,18 +1725,18 @@ et suivra désormais le versionnage sémantique (`MAJEUR.MINEUR.CORRECTIF`).
 
 | Idée d'origine | État dans la 1.0.0 |
 |----------------|--------------------|
-| Limitation de débit / anti-DDoS | ✅ `RATE_LIMIT`, seau à jetons par IP, `429` |
-| En-têtes de sécurité | ✅ `SECURITY_HEADERS`, `CSP`, `CORS_ORIGIN` |
-| Compression gzip | ✅ intégrée, sans zlib, avec cache |
-| WebSockets | ✅ RFC 6455, utilisé par le rechargement automatique |
-| Proxy inverse | ✅ `PROXY` |
-| Répartition de charge | ✅ round-robin + bascule |
-| Vérification de l'état des serveurs | ✅ health checks périodiques |
-| Authentification Basic | ✅ `AUTH` |
-| Tableau de bord de supervision | ✅ `/__lith/status` (JSON), protégé |
-| Métriques Prometheus | ✅ `/__lith/metrics` |
-| Zero-copy (`sendfile`) | ✅ sous Linux |
-| Conteneurisation | ✅ image `scratch` ≈ 330 Ko + health check |
+| Limitation de débit / anti-DDoS | `RATE_LIMIT`, seau à jetons par IP, `429` |
+| En-têtes de sécurité | `SECURITY_HEADERS`, `CSP`, `CORS_ORIGIN` |
+| Compression gzip | intégrée, sans zlib, avec cache |
+| WebSockets | RFC 6455, utilisé par le rechargement automatique |
+| Proxy inverse | `PROXY` |
+| Répartition de charge | round-robin + bascule |
+| Vérification de l'état des serveurs | health checks périodiques |
+| Authentification Basic | `AUTH` |
+| Tableau de bord de supervision | `/__lith/status` (JSON), protégé |
+| Métriques Prometheus | `/__lith/metrics` |
+| Zero-copy (`sendfile`) | sous Linux |
+| Conteneurisation | image `scratch` ≈ 330 Ko + health check |
 
 **Livré depuis** : **HTTPS natif** (option `make TLS=1`, module Rust + rustls,
 voir 16.4), avec redirection HTTP → HTTPS et HSTS.
@@ -1744,7 +1745,7 @@ voir 16.4), avec redirection HTTP → HTTPS et HSTS.
 
 Par ordre de priorité (valeur pour les utilisateurs / effort) :
 
-1. ~~**HTTPS natif (TLS)**~~ — ✅ livré (`make TLS=1`). Suites possibles :
+1. ~~**HTTPS natif (TLS)**~~ — livré (`make TLS=1`). Suites possibles :
    obtention automatique des certificats (ACME / Let's Encrypt intégré),
    plusieurs certificats selon le nom de domaine (SNI), backends `https://`
    pour le proxy, HTTPS dans l'image Docker et les exécutables publiés.

@@ -14,7 +14,7 @@ lith start
 → http://localhost:8090
 ```
 
-> 📘 **Nouveau venu ?** Toute l'explication, pas à pas, depuis zéro, se trouve
+> **Nouveau venu ?** Toute l'explication, pas à pas, depuis zéro, se trouve
 > dans **[DOCUMENTATION.md](DOCUMENTATION.md)**. Ce README n'en est qu'un résumé.
 
 ---
@@ -23,13 +23,13 @@ lith start
 
 | | |
 |---|---|
-| 🪶 **Minuscule** | ≈ 300 Ko, quelques Mo de RAM, image Docker de ≈ 330 Ko |
-| 📦 **Zéro dépendance** | Ni OpenSSL, ni zlib, ni runtime : seulement la bibliothèque C du système |
-| 🔒 **HTTPS en option** | `make TLS=1` : TLS 1.2/1.3 via un petit module Rust (rustls), redirection HTTP → HTTPS, HSTS |
-| ⚡ **Rapide** | Pool de threads, keep-alive, cache mémoire, gzip, `sendfile()` |
-| 🛡️ **Sûr par défaut** | Anti-remontée de dossiers, fichiers cachés protégés, en-têtes de sécurité, anti-slowloris |
-| 🧰 **Complet** | Proxy inverse, répartition de charge, WebSocket, live reload, statistiques Prometheus |
-| 🧪 **Testé** | Tests unitaires + intégration, sous sanitizers, en CI sur 3 systèmes + Docker |
+| **Minuscule** | ≈ 300 Ko, quelques Mo de RAM, image Docker de ≈ 330 Ko |
+| **Zéro dépendance** | Ni OpenSSL, ni zlib, ni runtime : seulement la bibliothèque C du système |
+| **HTTPS en option** | `make TLS=1` : TLS 1.2/1.3 via un petit module Rust (rustls), redirection HTTP → HTTPS, HSTS |
+| **Rapide** | Pool de threads, keep-alive, cache mémoire, gzip, `sendfile()` |
+| **Sûr par défaut** | Anti-remontée de dossiers, fichiers cachés protégés, en-têtes de sécurité, anti-slowloris |
+| **Complet** | Proxy inverse, répartition de charge, WebSocket, live reload, statistiques Prometheus |
+| **Testé** | Tests unitaires + intégration, sous sanitizers, en CI sur 3 systèmes + Docker |
 
 ## Fonctionnalités de la 1.0.0
 

@@ -33,6 +33,7 @@ cleanup() {
     [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null
     [ -n "${BACKEND_PID:-}" ] && kill "$BACKEND_PID" 2>/dev/null
     [ -n "${TLS_PID:-}" ] && kill "$TLS_PID" 2>/dev/null
+    [ -n "${LIM_PID:-}" ] && kill "$LIM_PID" 2>/dev/null
     if [ $UNIX -eq 0 ]; then taskkill //F //IM "$(basename "$LITH")" >/dev/null 2>&1 || true; fi
     rm -rf "$WORK"
 }
@@ -135,6 +136,11 @@ ETAG=$(curl -s -D - -o /dev/null "$BASE/long.txt" | grep -i '^etag:' | cut -d' '
 expect "If-None-Match -> 304" "304" "$(code -H "If-None-Match: $ETAG" "$BASE/long.txt")"
 expect "Range 0-99 -> 206" "206 100" "$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -H 'Range: bytes=0-99' "$BASE/data.bin")"
 expect "Range hors fichier -> 416" "416" "$(code -H 'Range: bytes=999999-' "$BASE/data.bin")"
+expect "Range suffixe (-50) -> 206" "206 50" "$(curl -s -o /dev/null -w '%{http_code} %{size_download}' -H 'Range: bytes=-50' "$BASE/data.bin")"
+LASTMOD=$(curl -s -D - -o /dev/null "$BASE/long.txt" | grep -i '^last-modified:' | cut -d' ' -f2- | tr -d '\r')
+expect "If-Modified-Since -> 304" "304" "$(code -H "If-Modified-Since: $LASTMOD" "$BASE/long.txt")"
+expect "OPTIONS (CORS préliminaire) -> 204" "204" "$(code -X OPTIONS -H 'Origin: https://a.fr' -H 'Access-Control-Request-Method: GET' "$BASE/")"
+expect "en-tête CORS" "1" "$(curl -s -D - -o /dev/null "$BASE/" | grep -ci 'access-control-allow-origin: \*')"
 GZ=$(curl -s -o /dev/null -w '%{size_download}' -H 'Accept-Encoding: gzip' "$BASE/long.txt")
 RAWSZ=$(curl -s -o /dev/null -w '%{size_download}' "$BASE/long.txt")
 [ "$GZ" -lt $((RAWSZ / 3)) ] && ok "gzip réduit la taille ($RAWSZ -> $GZ octets)" || ko "gzip" "$RAWSZ -> $GZ"
@@ -168,12 +174,55 @@ WS=$(curl -s -i -N --max-time 1 -H 'Connection: Upgrade' -H 'Upgrade: websocket'
      -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "$BASE/__lith/livereload" | tr -d '\r')
 expect "poignée de main 101" "1" "$(echo "$WS" | grep -c '101 Switching Protocols')"
 expect "Sec-WebSocket-Accept (RFC 6455)" "1" "$(echo "$WS" | grep -c 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=')"
+# Un fichier modifié doit envoyer la trame texte "reload" (0x81, longueur 6) aux navigateurs connectés.
+curl -s -N --max-time 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+     -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "$BASE/__lith/livereload" > "$WORK/ws.bin" & WS_PID=$!
+sleep 1.5
+echo "modifié" > public/touch.txt
+wait "$WS_PID" 2>/dev/null
+expect "live reload : trame 'reload' après modification" "1" "$(grep -c 'reload' "$WORK/ws.bin")"
 
 echo "== Supervision"
 expect "/__lith/status (JSON)" "1" "$(curl -s "$BASE/__lith/status" | grep -c '"version": "1.0.0"')"
 expect "/__lith/metrics (Prometheus)" "1" "$(curl -s "$BASE/__lith/metrics" | grep -c '^lith_info{version="1.0.0"} 1')"
 expect "statut refusé si relayé par un proxy" "403" "$(code -H "X-Forwarded-For: 203.0.113.9" "$BASE/__lith/status")"
 expect "journal d'accès écrit" "1" "$([ "$(grep -c '"GET / HTTP/1.1" 200' server.log)" -ge 1 ] && echo 1 || echo 0)"
+
+echo "== Limitation de débit, statut protégé, en-têtes configurables"
+LIM_PORT=$((PORT + 5))
+LIM_BASE="http://127.0.0.1:$LIM_PORT"
+mkdir -p "$WORK/lim/public"
+echo "<h1>lim</h1>" > "$WORK/lim/public/index.html"
+cat > "$WORK/lim/lith.conf" <<EOF
+PORT=$LIM_PORT
+RATE_LIMIT=3
+RATE_BURST=3
+STATUS_AUTH=adm:pw
+CSP=default-src 'self'
+CACHE_CONTROL=max-age=60
+LOG_FILE=lim.log
+EOF
+(cd "$WORK/lim" && exec "$LITH" start > console.log 2>&1) & LIM_PID=$!
+if wait_up "$LIM_PORT"; then
+    sleep 1.1   # seau à jetons plein après la sonde de démarrage
+    expect "en-tête CSP" "1" "$(curl -s -D - -o /dev/null "$LIM_BASE/" | grep -ci "content-security-policy: default-src 'self'")"
+    expect "en-tête Cache-Control" "1" "$(curl -s -D - -o /dev/null "$LIM_BASE/" | grep -ci 'cache-control: max-age=60')"
+    # Rafale : on garde les en-têtes de la première réponse 429 (le seau se remplit à 3 jetons/s).
+    LIMITED=""
+    for _ in $(seq 1 10); do
+        H=$(curl -s -D - -o /dev/null "$LIM_BASE/")
+        case "$H" in "HTTP/1.1 429"*) LIMITED="$H"; break ;; esac
+    done
+    expect "RATE_LIMIT : 429 après la rafale" "1" "$([ -n "$LIMITED" ] && echo 1 || echo 0)"
+    expect "RATE_LIMIT : Retry-After" "1" "$(echo "$LIMITED" | grep -ci '^retry-after: 1')"
+    sleep 1.5
+    expect "STATUS_AUTH sans mot de passe -> 401" "401" "$(code "$LIM_BASE/__lith/status")"
+    expect "STATUS_AUTH avec mot de passe -> 200" "200" "$(code -u adm:pw "$LIM_BASE/__lith/status")"
+    expect "LOG_FILE : journal écrit dans le fichier" "1" "$([ "$(grep -c 'GET / HTTP/1.1' "$WORK/lim/lim.log")" -ge 1 ] && echo 1 || echo 0)"
+else
+    ko "serveur avec RATE_LIMIT" "n'a pas démarré"
+fi
+kill "$LIM_PID" 2>/dev/null; wait "$LIM_PID" 2>/dev/null; LIM_PID=""
 
 echo "== HTTPS"
 TLS_HTTP_PORT=$((PORT + 3))
