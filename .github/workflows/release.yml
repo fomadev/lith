@@ -1,12 +1,25 @@
 name: Release
 
+# Pushing a tag such as v1.0.0 (or v1.1.0-rc.1 for a pre-release):
+#   1. builds and tests the Linux, macOS and Windows executables,
+#   2. creates the GitHub Release and attaches the archives,
+#   3. builds the Docker image for amd64 + arm64 and pushes it to Docker Hub,
+#   4. adds the Docker instructions to the release notes.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   DOCKERHUB_USERNAME  Docker Hub account (fomadev0)
+#   DOCKERHUB_TOKEN     Docker Hub personal access token ("Read & Write")
+
 on:
   push:
     tags:
       - 'v*'
 
+env:
+  DOCKER_IMAGE: fomadev0/lith
+
 jobs:
-  release-assets:
+  binaries:
     name: Release ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     permissions:
@@ -16,13 +29,10 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux-x64
-            ext: tar.gz
           - os: macos-latest
             name: macos
-            ext: tar.gz
           - os: windows-latest
             name: windows-x64
-            ext: zip
 
     steps:
       - name: Checkout repository
@@ -52,8 +62,7 @@ jobs:
         id: pkg
         shell: bash
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          NAME="lith-${TAG}-${{ matrix.name }}"
+          NAME="lith-${GITHUB_REF_NAME}-${{ matrix.name }}"
           mkdir -p "dist/$NAME/bin" "dist/$NAME/public"
           cp bin/lith* "dist/$NAME/bin/" && rm -f "dist/$NAME/bin/unit_tests"*
           cp public/index.html "dist/$NAME/public/"
@@ -75,5 +84,99 @@ jobs:
           files: |
             lith-*.zip
             lith-*.tar.gz
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+
+  docker:
+    name: Docker Hub (amd64 + arm64)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Docker Hub secrets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Add the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+          # v1.2.3 -> 1.2.3, 1.2 and latest. Pre-releases (v1.3.0-rc.1) only get their exact tag.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          flavor: |
+            latest=auto
+          labels: |
+            org.opencontainers.image.title=LITH
+            org.opencontainers.image.description=Tiny dependency-free web server: static files, reverse proxy, live reload.
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test of the published image
+        run: |
+          IMAGE="${DOCKER_IMAGE}:${{ steps.meta.outputs.version }}"
+          docker run -d --name lith -p 8090:8090 "$IMAGE"
+          for _ in $(seq 1 20); do curl -fs http://127.0.0.1:8090/__lith/health && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:8090/ | grep -qi "LITH"
+          docker exec lith /lith health
+          docker rm -f lith
+
+  release-notes:
+    name: Add Docker instructions to the release
+    needs: [binaries, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Image version
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Update release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          append_body: true
+          body: |
+
+            ## Docker
+
+            Image for `linux/amd64` and `linux/arm64` (Raspberry Pi, Apple Silicon, ARM servers):
+
+            ```bash
+            docker pull ${{ env.DOCKER_IMAGE }}:${{ steps.v.outputs.version }}
+            docker run -d -p 8090:8090 ${{ env.DOCKER_IMAGE }}:${{ steps.v.outputs.version }}
+            ```
+
+            https://hub.docker.com/r/${{ env.DOCKER_IMAGE }}

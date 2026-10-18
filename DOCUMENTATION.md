@@ -64,7 +64,7 @@ What makes it special:
 | Spread traffic over several copies of my application | Load balancing with failure detection |
 | Protect a page with a password | `AUTH=/admin user:password` |
 | Monitor my server | Statistics pages, Prometheus/Grafana format |
-| Deploy to the cloud | ≈ 330 KB Docker image |
+| Deploy to the cloud | ≈ 340 KB Docker image |
 
 ### 0.3 What LITH does not do (yet)
 
@@ -335,11 +335,12 @@ about 1.5 MB. Without `TLS=1`, none of this is involved.
 
 ### 2.4 With Docker
 
-If you know Docker, no installation is needed:
+If you know Docker, no installation is needed: the image is published on
+[Docker Hub](https://hub.docker.com/r/fomadev0/lith) for `linux/amd64` and
+`linux/arm64` (Raspberry Pi, Apple Silicon, ARM servers).
 
 ```bash
-docker build -t lith .
-docker run -p 8090:8090 lith
+docker run -p 8090:8090 fomadev0/lith
 ```
 
 Details are in [chapter 12.5](#125-deploying-with-docker).
@@ -1374,19 +1375,29 @@ block in a server configured with a certificate (for example through `certbot`).
 
 The provided `Dockerfile` builds LITH as a static executable and produces a
 **`scratch`** (empty) image that only contains LITH and the site: about
-**330 KB**, with no shell or operating system to update.
+**340 KB**, with no shell or operating system to update.
+
+The official image is published on Docker Hub as **`fomadev0/lith`**, for
+`linux/amd64` and `linux/arm64`, every time a version is released:
+
+| Tag | Content | When to use it |
+|-----|---------|----------------|
+| `fomadev0/lith:1.0.0` | Exactly version 1.0.0, never changes | Production: you decide when to update |
+| `fomadev0/lith:1.0` | Latest 1.0.x (bug fixes) | Production with automatic fixes |
+| `fomadev0/lith:latest` | Latest stable version | Trying it out |
 
 ```bash
-docker build -t lith .
-
 # Serve the sample site
-docker run -d -p 8090:8090 --name lith lith
+docker run -d -p 8090:8090 --name lith fomadev0/lith:1.0.0
 
 # Serve your own site (mounted read-only)
-docker run -d -p 8090:8090 -v "$PWD/public:/srv/public:ro" lith
+docker run -d -p 8090:8090 -v "$PWD/public:/srv/public:ro" fomadev0/lith:1.0.0
 
 # With your own configuration
-docker run -d -p 8090:8090 -v "$PWD/lith.conf:/lith.conf:ro" -v "$PWD/public:/srv/public:ro" lith
+docker run -d -p 8090:8090 -v "$PWD/lith.conf:/lith.conf:ro" -v "$PWD/public:/srv/public:ro" fomadev0/lith:1.0.0
+
+# Or build the image yourself from the sources
+docker build -t lith .
 ```
 
 Inside the container: the configuration is `/lith.conf`, the site
@@ -1403,7 +1414,7 @@ of the container.
 ```yaml
 services:
   web:
-    build: .
+    image: fomadev0/lith:1.0.0    # or "build: ." to build from the sources
     ports: ["8090:8090"]
     volumes:
       - ./public:/srv/public:ro
@@ -1711,7 +1722,7 @@ follow semantic versioning (`MAJOR.MINOR.PATCH`).
 | Monitoring dashboard | `/__lith/status` (JSON), protected |
 | Prometheus metrics | `/__lith/metrics` |
 | Zero-copy (`sendfile`) | on Linux |
-| Containerization | `scratch` image ≈ 330 KB + health check |
+| Containerization | `scratch` image ≈ 340 KB + health check, published on Docker Hub |
 
 **Delivered since**: **native HTTPS** (`make TLS=1` option, Rust module +
 rustls, see 16.4), with HTTP → HTTPS redirect and HSTS.

@@ -23,7 +23,7 @@ lith start
 
 | | |
 |---|---|
-| **Tiny** | ≈ 300 KB, a few MB of RAM, ≈ 330 KB Docker image |
+| **Tiny** | ≈ 300 KB, a few MB of RAM, ≈ 340 KB Docker image |
 | **Zero dependencies** | No OpenSSL, no zlib, no runtime: only the system C library |
 | **Optional HTTPS** | `make TLS=1`: TLS 1.2/1.3 through a small Rust module (rustls), HTTP → HTTPS redirect, HSTS |
 | **Fast** | Thread pool, keep-alive, in-memory cache, gzip, `sendfile()` |
@@ -75,10 +75,14 @@ make TLS=1 test
 
 ### Docker
 
+Ready-made image on [Docker Hub](https://hub.docker.com/r/fomadev0/lith)
+(`linux/amd64` and `linux/arm64`, ≈ 340 KB):
+
 ```bash
-docker build -t lith .
-docker run -p 8090:8090 -v "$PWD/public:/srv/public:ro" lith
+docker run -p 8090:8090 -v "$PWD/public:/srv/public:ro" fomadev0/lith
 ```
+
+Or build it yourself: `docker build -t lith .`
 
 ---
 

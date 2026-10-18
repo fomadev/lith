@@ -1,7 +1,10 @@
+tls/target/
 bin/
 build/
 .git/
+.github/
 *.o
 *.d
 *.log
 *.pid
+*.pem

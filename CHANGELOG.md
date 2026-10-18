@@ -28,6 +28,10 @@ The project follows [semantic versioning](https://semver.org/): `MAJOR.MINOR.PAT
   live reload frame after a file change, `RATE_LIMIT` and `Retry-After`,
   `STATUS_AUTH`, `CSP`, `CACHE_CONTROL`, `LOG_FILE`.
 - `make distclean` also removes the Rust build.
+- Official Docker image on Docker Hub, **`fomadev0/lith`**, for `linux/amd64`
+  and `linux/arm64`: every `v*` tag builds and tests it, pushes the
+  `X.Y.Z`, `X.Y` and `latest` tags, then adds the `docker pull` command to the
+  GitHub Release notes. Pre-releases (`v1.1.0-rc.1`) only get their exact tag.
 
 ### Changed
 - Reverse proxy: `X-Forwarded-Proto` is `https` when the visitor came in over
