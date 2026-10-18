@@ -1,141 +1,141 @@
-# Documentation de LITH 1.0.0
+# LITH 1.0.0 Documentation
 
-> Le guide complet de LITH, écrit pour être compris **même si vous n'avez
-> jamais installé de serveur web**. Chaque notion est expliquée avant d'être
-> utilisée. Les développeurs expérimentés peuvent sauter directement aux
-> chapitres qui les intéressent.
-
----
-
-## Sommaire
-
-- [Chapitre 0 — Introduction](#chapitre-0--introduction)
-- [Chapitre 1 — Les notions de base du web](#chapitre-1--les-notions-de-base-du-web)
-- [Chapitre 2 — Installer LITH](#chapitre-2--installer-lith)
-- [Chapitre 3 — Votre premier site en 5 minutes](#chapitre-3--votre-premier-site-en-5-minutes)
-- [Chapitre 4 — La ligne de commande](#chapitre-4--la-ligne-de-commande)
-- [Chapitre 5 — Le fichier de configuration lith.conf](#chapitre-5--le-fichier-de-configuration-lithconf)
-- [Chapitre 6 — Servir un site web](#chapitre-6--servir-un-site-web)
-- [Chapitre 7 — Performance](#chapitre-7--performance)
-- [Chapitre 8 — Sécurité](#chapitre-8--sécurité)
-- [Chapitre 9 — Le mode développement (rechargement automatique)](#chapitre-9--le-mode-développement-rechargement-automatique)
-- [Chapitre 10 — Proxy inverse et répartition de charge](#chapitre-10--proxy-inverse-et-répartition-de-charge)
-- [Chapitre 11 — Supervision et journaux](#chapitre-11--supervision-et-journaux)
-- [Chapitre 12 — Mettre en production](#chapitre-12--mettre-en-production)
-- [Chapitre 13 — Comment LITH fonctionne à l'intérieur](#chapitre-13--comment-lith-fonctionne-à-lintérieur)
-- [Chapitre 14 — Compiler, tester et contribuer](#chapitre-14--compiler-tester-et-contribuer)
-- [Chapitre 15 — Dépannage et questions fréquentes](#chapitre-15--dépannage-et-questions-fréquentes)
-- [Chapitre 16 — Feuille de route et choix techniques (dont Rust)](#chapitre-16--feuille-de-route-et-choix-techniques-dont-rust)
-- [Chapitre 17 — Glossaire](#chapitre-17--glossaire)
-- [Annexe A — Aide-mémoire](#annexe-a--aide-mémoire)
-- [Annexe B — Codes de réponse HTTP utilisés par LITH](#annexe-b--codes-de-réponse-http-utilisés-par-lith)
+> The complete LITH guide, written to be understood **even if you have never
+> installed a web server**. Every concept is explained before it is used.
+> Experienced developers can jump straight to the chapters they need.
 
 ---
 
-## Chapitre 0 — Introduction
+## Contents
 
-### 0.1 LITH, c'est quoi ?
+- [Chapter 0 — Introduction](#chapter-0--introduction)
+- [Chapter 1 — Web basics](#chapter-1--web-basics)
+- [Chapter 2 — Installing LITH](#chapter-2--installing-lith)
+- [Chapter 3 — Your first site in 5 minutes](#chapter-3--your-first-site-in-5-minutes)
+- [Chapter 4 — The command line](#chapter-4--the-command-line)
+- [Chapter 5 — The lith.conf configuration file](#chapter-5--the-lithconf-configuration-file)
+- [Chapter 6 — Serving a website](#chapter-6--serving-a-website)
+- [Chapter 7 — Performance](#chapter-7--performance)
+- [Chapter 8 — Security](#chapter-8--security)
+- [Chapter 9 — Development mode (live reload)](#chapter-9--development-mode-live-reload)
+- [Chapter 10 — Reverse proxy and load balancing](#chapter-10--reverse-proxy-and-load-balancing)
+- [Chapter 11 — Monitoring and logs](#chapter-11--monitoring-and-logs)
+- [Chapter 12 — Going to production](#chapter-12--going-to-production)
+- [Chapter 13 — How LITH works inside](#chapter-13--how-lith-works-inside)
+- [Chapter 14 — Building, testing and contributing](#chapter-14--building-testing-and-contributing)
+- [Chapter 15 — Troubleshooting and FAQ](#chapter-15--troubleshooting-and-faq)
+- [Chapter 16 — Roadmap and technical choices (including Rust)](#chapter-16--roadmap-and-technical-choices-including-rust)
+- [Chapter 17 — Glossary](#chapter-17--glossary)
+- [Appendix A — Cheat sheet](#appendix-a--cheat-sheet)
+- [Appendix B — HTTP status codes used by LITH](#appendix-b--http-status-codes-used-by-lith)
 
-LITH (pour *Light HTTP Server*) est un **serveur web** : un programme qui
-attend qu'un navigateur lui demande une page, puis la lui envoie.
+---
 
-Quand vous tapez une adresse dans votre navigateur, quelque part, un serveur web
-reçoit cette demande et répond avec le contenu de la page. LITH joue ce rôle,
-sur votre propre ordinateur ou sur un serveur en ligne.
+## Chapter 0 — Introduction
 
-Ses particularités :
+### 0.1 What is LITH?
 
-- **Il est minuscule** : un seul fichier exécutable d'environ 300 Ko, qui
-  consomme quelques mégaoctets de mémoire.
-- **Il n'a besoin de rien d'autre** : pas de Node.js, pas de Python, pas de
-  bibliothèque à installer. Vous le copiez, vous le lancez, il fonctionne.
-- **Il marche partout** : Windows, Linux, macOS, Raspberry Pi, Docker.
-- **Il est sûr par défaut** : les protections importantes sont actives sans
-  rien configurer.
-- **Il est écrit en C11**, un langage très rapide et très portable.
+LITH (short for *Light HTTP Server*) is a **web server**: a program that
+waits for a browser to ask for a page, then sends it.
 
-### 0.2 À quoi peut-il servir ?
+When you type an address in your browser, somewhere a web server receives that
+request and answers with the content of the page. LITH plays that role, on your
+own computer or on a server on the Internet.
 
-| Besoin | Ce que LITH fait pour vous |
-|--------|----------------------------|
-| Voir mon site HTML/CSS/JS dans le navigateur pendant que je le code | `lith start --dev` : la page se recharge toute seule à chaque modification |
-| Publier un site vitrine, un portfolio, une documentation | Sert les fichiers vite, compressés, avec cache |
-| Héberger une application React / Vue / Angular | Mode `SPA_FALLBACK` pour que les routes de l'application fonctionnent |
-| Mettre mon API Node.js / Python derrière une seule adresse | Proxy inverse : `/api` va vers votre application |
-| Répartir le trafic sur plusieurs copies de mon application | Répartition de charge avec détection des pannes |
-| Protéger une page par mot de passe | `AUTH=/admin utilisateur:motdepasse` |
-| Surveiller mon serveur | Pages de statistiques, format Prometheus/Grafana |
-| Déployer dans le cloud | Image Docker de ≈ 330 Ko |
+What makes it special:
 
-### 0.3 Ce que LITH ne fait pas (encore)
+- **It is tiny**: a single executable file of about 300 KB, using a few
+  megabytes of memory.
+- **It needs nothing else**: no Node.js, no Python, no library to install.
+  Copy it, run it, it works.
+- **It runs everywhere**: Windows, Linux, macOS, Raspberry Pi, Docker.
+- **It is secure by default**: the important protections are active without
+  any configuration.
+- **It is written in C11**, a very fast and very portable language.
 
-Il vaut mieux le savoir dès le début :
+### 0.2 What can it be used for?
 
-- **HTTPS** (le cadenas dans le navigateur) est une **option de compilation** :
-  l'exécutable standard n'en contient pas (il reste sans aucune dépendance) ;
-  compilé avec `make TLS=1`, LITH sert directement `https://`. Autre solution :
-  placer LITH derrière un outil qui gère HTTPS (Caddy, nginx, Cloudflare...).
-  Les deux méthodes sont expliquées pas à pas au
-  [chapitre 12.4](#124-ajouter-https).
-- LITH **n'obtient pas** les certificats tout seul : vous les lui fournissez
-  (Let's Encrypt avec `certbot`, par exemple), ou vous laissez Caddy s'en charger.
-- LITH **n'exécute pas de code serveur** (PHP, Python...) lui-même. En revanche,
-  il peut transmettre les requêtes à une application qui le fait (chapitre 10).
-- Il parle HTTP/1.0 et HTTP/1.1 (pas encore HTTP/2 ni HTTP/3). C'est largement
-  suffisant pour la grande majorité des sites.
+| Need | What LITH does for you |
+|------|------------------------|
+| See my HTML/CSS/JS site in the browser while I code it | `lith start --dev`: the page reloads by itself on every change |
+| Publish a showcase site, a portfolio, documentation | Serves files fast, compressed, with caching |
+| Host a React / Vue / Angular application | `SPA_FALLBACK` mode so the application routes work |
+| Put my Node.js / Python API behind a single address | Reverse proxy: `/api` goes to your application |
+| Spread traffic over several copies of my application | Load balancing with failure detection |
+| Protect a page with a password | `AUTH=/admin user:password` |
+| Monitor my server | Statistics pages, Prometheus/Grafana format |
+| Deploy to the cloud | ≈ 330 KB Docker image |
 
-### 0.4 Comment lire ce guide
+### 0.3 What LITH does not do (yet)
 
-- Si vous débutez : lisez les chapitres **1 à 6 dans l'ordre**. Vous aurez un
-  site en ligne en local à la fin du chapitre 3.
-- Si vous voulez mettre un site en ligne : chapitres **8 et 12**.
-- Si vous êtes développeur et curieux : chapitres **13, 14 et 16**.
+Better to know it from the start:
 
-**Conventions** :
+- **HTTPS** (the padlock in the browser) is a **build option**: the standard
+  executable does not include it (it stays free of any dependency); built with
+  `make TLS=1`, LITH serves `https://` directly. Another solution: put LITH
+  behind a tool that handles HTTPS (Caddy, nginx, Cloudflare...). Both methods
+  are explained step by step in [chapter 12.4](#124-adding-https).
+- LITH **does not obtain** certificates by itself: you provide them (Let's
+  Encrypt with `certbot`, for example), or you let Caddy take care of it.
+- LITH **does not run server-side code** (PHP, Python...) itself. However, it
+  can forward requests to an application that does (chapter 10).
+- It speaks HTTP/1.0 and HTTP/1.1 (not HTTP/2 or HTTP/3 yet). That is more than
+  enough for the vast majority of websites.
 
-- Un bloc comme celui-ci est une commande à taper dans un **terminal** :
+### 0.4 How to read this guide
+
+- If you are a beginner: read chapters **1 to 6 in order**. You will have a
+  site running locally by the end of chapter 3.
+- If you want to put a site online: chapters **8 and 12**.
+- If you are a curious developer: chapters **13, 14 and 16**.
+
+**Conventions**:
+
+- A block like this one is a command to type in a **terminal**:
 
   ```bash
   lith start
   ```
 
-- Le *terminal* (ou *invite de commandes*) est la fenêtre où l'on tape des
-  commandes : **PowerShell** ou **Invite de commandes** sous Windows,
-  **Terminal** sous macOS et Linux.
-- `<quelque-chose>` signifie « remplacez par votre valeur ».
+- The *terminal* (or *command prompt*) is the window where you type commands:
+  **PowerShell** or **Command Prompt** on Windows, **Terminal** on macOS and Linux.
+- `<something>` means "replace with your own value".
+- LITH's own messages (logs, `lith check`, `lith init`) are currently in
+  French. They are quoted exactly as the program prints them, with their
+  meaning explained in the text.
 
 ---
 
-## Chapitre 1 — Les notions de base du web
+## Chapter 1 — Web basics
 
-Ce chapitre explique, sans jargon inutile, ce qui se passe quand vous ouvrez
-une page web. Si vous connaissez déjà HTTP, passez au chapitre 2.
+This chapter explains, without unnecessary jargon, what happens when you open
+a web page. If you already know HTTP, skip to chapter 2.
 
-### 1.1 Client et serveur
+### 1.1 Client and server
 
-Le web fonctionne comme un restaurant :
+The web works like a restaurant:
 
-- le **client** (votre navigateur : Chrome, Firefox, Edge, Safari) passe une
-  **commande** : « je voudrais la page d'accueil » ;
-- le **serveur** (LITH) va chercher le plat en cuisine (le fichier sur le
-  disque) et le **sert** au client.
+- the **client** (your browser: Chrome, Firefox, Edge, Safari) places an
+  **order**: "I would like the home page";
+- the **server** (LITH) fetches the dish from the kitchen (the file on disk)
+  and **serves** it to the client.
 
 ```text
-   Navigateur (client)                         LITH (serveur)
-  ┌──────────────────┐   1. requête            ┌──────────────────┐
+   Browser (client)                            LITH (server)
+  ┌──────────────────┐   1. request            ┌──────────────────┐
   │                  │ ──────────────────────▶ │                  │
-  │  http://.../     │   "GET /index.html"     │  lit le fichier   │
+  │  http://.../     │   "GET /index.html"     │  reads the file   │
   │                  │                         │  public/index.html│
   │                  │ ◀────────────────────── │                  │
-  └──────────────────┘   2. réponse            └──────────────────┘
-                          "200 OK" + le HTML
+  └──────────────────┘   2. response           └──────────────────┘
+                          "200 OK" + the HTML
 ```
 
-### 1.2 HTTP : la langue commune
+### 1.2 HTTP: the common language
 
-Le navigateur et le serveur se parlent dans un langage appelé **HTTP**
-(*HyperText Transfer Protocol*). C'est du texte très simple. Voici une vraie
-requête envoyée par un navigateur :
+The browser and the server talk to each other in a language called **HTTP**
+(*HyperText Transfer Protocol*). It is very simple text. Here is a real
+request sent by a browser:
 
 ```http
 GET /contact.html HTTP/1.1
@@ -144,14 +144,14 @@ User-Agent: Mozilla/5.0 ...
 Accept-Encoding: gzip
 ```
 
-- `GET` est la **méthode** : « donne-moi ». (Il en existe d'autres : `POST`
-  pour envoyer un formulaire, `HEAD` pour demander seulement les informations...)
-- `/contact.html` est le **chemin** de la ressource demandée.
-- `HTTP/1.1` est la version du protocole.
-- Les lignes suivantes sont des **en-têtes** : des informations
-  supplémentaires (« j'accepte la compression gzip », « je suis Firefox »...).
+- `GET` is the **method**: "give me". (There are others: `POST` to send a
+  form, `HEAD` to ask only for the information...)
+- `/contact.html` is the **path** of the requested resource.
+- `HTTP/1.1` is the protocol version.
+- The following lines are **headers**: extra information ("I accept gzip
+  compression", "I am Firefox"...).
 
-Et la réponse de LITH :
+And LITH's response:
 
 ```http
 HTTP/1.1 200 OK
@@ -162,145 +162,144 @@ Content-Length: 1234
 <html>...
 ```
 
-- `200 OK` est le **code de statut** : ici, « tout va bien ».
-- `Content-Type` dit au navigateur ce qu'il reçoit (une page HTML, une image...).
-- Après une ligne vide vient le **corps** : le contenu du fichier.
+- `200 OK` is the **status code**: here, "all good".
+- `Content-Type` tells the browser what it is receiving (an HTML page, an image...).
+- After an empty line comes the **body**: the content of the file.
 
-### 1.3 Les codes de statut
+### 1.3 Status codes
 
-Le code à trois chiffres résume le résultat :
+The three-digit code summarizes the result:
 
-| Famille | Signification | Exemples courants |
-|---------|---------------|-------------------|
-| 2xx | Succès | `200 OK`, `206 Partial Content` (un morceau de vidéo) |
-| 3xx | Redirection ou « rien de neuf » | `301` (l'adresse a changé), `304 Not Modified` (« vous avez déjà la bonne version ») |
-| 4xx | Erreur du client | `404 Not Found` (n'existe pas), `403 Forbidden` (interdit), `401` (mot de passe requis), `429` (trop de requêtes) |
-| 5xx | Erreur du serveur | `500` (problème interne), `502` (l'application derrière le proxy ne répond pas) |
+| Family | Meaning | Common examples |
+|--------|---------|-----------------|
+| 2xx | Success | `200 OK`, `206 Partial Content` (a piece of a video) |
+| 3xx | Redirect or "nothing new" | `301` (the address has changed), `304 Not Modified` ("you already have the right version") |
+| 4xx | Client error | `404 Not Found` (does not exist), `403 Forbidden`, `401` (password required), `429` (too many requests) |
+| 5xx | Server error | `500` (internal problem), `502` (the application behind the proxy does not answer) |
 
-La liste complète utilisée par LITH est en [annexe B](#annexe-b--codes-de-réponse-http-utilisés-par-lith).
+The full list used by LITH is in [appendix B](#appendix-b--http-status-codes-used-by-lith).
 
-### 1.4 URL, adresse, port et localhost
+### 1.4 URL, address, port and localhost
 
-Une **URL** comme `http://localhost:8090/blog/article.html` se décompose ainsi :
+A **URL** such as `http://localhost:8090/blog/article.html` breaks down like this:
 
-| Partie | Exemple | Signification |
-|--------|---------|---------------|
-| Protocole | `http://` | La langue utilisée |
-| Hôte | `localhost` | La machine à joindre. `localhost` = « mon propre ordinateur » |
-| Port | `8090` | La « porte » de la machine où LITH écoute |
-| Chemin | `/blog/article.html` | Le fichier demandé |
+| Part | Example | Meaning |
+|------|---------|---------|
+| Protocol | `http://` | The language used |
+| Host | `localhost` | The machine to reach. `localhost` = "my own computer" |
+| Port | `8090` | The "door" of the machine where LITH listens |
+| Path | `/blog/article.html` | The requested file |
 
-**Le port**, c'est comme le numéro d'appartement dans un immeuble : l'adresse
-désigne l'immeuble (la machine), le port désigne la porte (le programme). Un
-même ordinateur peut faire tourner plusieurs serveurs, chacun sur son port.
-LITH utilise le port **8090** par défaut. Le port **80** est celui du web
-classique (quand on ne précise rien dans l'adresse), le **443** celui de HTTPS.
+**The port** is like an apartment number in a building: the address designates
+the building (the machine), the port designates the door (the program). The
+same computer can run several servers, each on its own port. LITH uses port
+**8090** by default. Port **80** is the one of the regular web (when nothing is
+specified in the address), **443** is the one of HTTPS.
 
-**`localhost`** (ou `127.0.0.1`) désigne toujours votre propre machine. Un site
-ouvert sur `http://localhost:8090` n'est visible que depuis votre ordinateur...
-sauf si vous donnez votre adresse réseau à d'autres appareils (voir 6.9).
+**`localhost`** (or `127.0.0.1`) always designates your own machine. A site
+opened at `http://localhost:8090` is only visible from your computer... unless
+you give your network address to other devices (see 6.9).
 
-### 1.5 Site statique ou dynamique ?
+### 1.5 Static or dynamic site?
 
-- Un **site statique** est fait de fichiers prêts à l'emploi (HTML, CSS,
-  JavaScript, images). Le serveur les envoie tels quels. C'est le travail
-  principal de LITH, et c'est extrêmement rapide.
-- Un **site dynamique** fabrique les pages à la demande avec un programme
-  (PHP, Node.js, Python...). LITH ne fabrique pas ces pages lui-même, mais il
-  peut se placer devant votre application et lui transmettre les requêtes :
-  c'est le **proxy inverse** (chapitre 10).
+- A **static site** is made of ready-to-use files (HTML, CSS, JavaScript,
+  images). The server sends them as they are. That is LITH's main job, and it
+  is extremely fast.
+- A **dynamic site** builds pages on demand with a program (PHP, Node.js,
+  Python...). LITH does not build these pages itself, but it can sit in front
+  of your application and forward requests to it: that is the **reverse
+  proxy** (chapter 10).
 
-> **Astuce :** Les applications modernes React, Vue, Svelte ou Angular, une fois
-> « construites » (`npm run build`), sont des **sites statiques** : LITH peut
-> les servir directement.
+> **Tip:** Modern React, Vue, Svelte or Angular applications, once "built"
+> (`npm run build`), are **static sites**: LITH can serve them directly.
 
 ---
 
-## Chapitre 2 — Installer LITH
+## Chapter 2 — Installing LITH
 
-Deux possibilités : télécharger un exécutable prêt à l'emploi (le plus simple),
-ou le compiler vous-même.
+Two options: download a ready-to-use executable (the simplest), or build it
+yourself.
 
-### 2.1 Télécharger un exécutable (recommandé pour débuter)
+### 2.1 Download an executable (recommended for beginners)
 
-1. Allez sur la page des **Releases** : <https://github.com/fomadev/lith/releases>
-2. Téléchargez l'archive de votre système :
-   - Windows : `lith-v1.0.0-windows-x64.zip`
-   - Linux : `lith-v1.0.0-linux-x64.tar.gz`
-   - macOS : `lith-v1.0.0-macos.tar.gz`
-3. Décompressez-la. Vous obtenez :
+1. Go to the **Releases** page: <https://github.com/fomadev/lith/releases>
+2. Download the archive for your system:
+   - Windows: `lith-v1.0.0-windows-x64.zip`
+   - Linux: `lith-v1.0.0-linux-x64.tar.gz`
+   - macOS: `lith-v1.0.0-macos.tar.gz`
+3. Extract it. You get:
 
    ```text
    lith-v1.0.0-.../
-   ├── bin/lith(.exe)     ← le serveur
-   ├── public/index.html  ← un site d'exemple
-   ├── lith.conf          ← la configuration commentée
+   ├── bin/lith(.exe)     ← the server
+   ├── public/index.html  ← a sample site
+   ├── lith.conf          ← the commented configuration
    ├── README.md, DOCUMENTATION.md, CHANGELOG.md, LICENSE
    ```
 
-4. Vérifiez que tout fonctionne. Ouvrez un terminal **dans ce dossier** et tapez :
+4. Check that everything works. Open a terminal **in this folder** and type:
 
    ```bash
    bin/lith version        # Linux / macOS
    bin\lith.exe version    # Windows
    ```
 
-   Vous devez voir `LITH 1.0.0`.
+   You should see `LITH 1.0.0`.
 
-> **macOS :** au premier lancement, macOS peut bloquer un programme
-> téléchargé. Autorisez-le dans *Réglages Système → Confidentialité et
-> sécurité*, ou tapez `xattr -d com.apple.quarantine bin/lith`.
+> **macOS:** on first launch, macOS may block a downloaded program. Allow it
+> in *System Settings → Privacy & Security*, or type
+> `xattr -d com.apple.quarantine bin/lith`.
 
-### 2.2 Rendre la commande `lith` disponible partout
+### 2.2 Making the `lith` command available everywhere
 
-Pour taper simplement `lith` depuis n'importe quel dossier, l'exécutable doit
-être dans le **PATH** (la liste des dossiers où le système cherche les commandes).
+To simply type `lith` from any folder, the executable must be in the **PATH**
+(the list of folders where the system looks for commands).
 
-**Windows** :
-1. Créez un dossier, par exemple `C:\lith\bin`, et copiez-y `lith.exe`.
-2. Menu Démarrer → tapez « variables d'environnement » → *Modifier les
-   variables d'environnement pour votre compte*.
-3. Sélectionnez `Path` → *Modifier* → *Nouveau* → `C:\lith\bin` → OK.
-4. **Fermez et rouvrez** le terminal, puis tapez `lith version`.
+**Windows**:
+1. Create a folder, for example `C:\lith\bin`, and copy `lith.exe` into it.
+2. Start menu → type "environment variables" → *Edit environment variables
+   for your account*.
+3. Select `Path` → *Edit* → *New* → `C:\lith\bin` → OK.
+4. **Close and reopen** the terminal, then type `lith version`.
 
-**Linux / macOS** :
+**Linux / macOS**:
 
 ```bash
 sudo cp bin/lith /usr/local/bin/
 lith version
 ```
 
-### 2.3 Compiler LITH soi-même
+### 2.3 Building LITH yourself
 
-Compiler, c'est transformer le code source (fichiers `.c`) en programme
-exécutable. Il faut deux outils : un **compilateur C** et **make**.
+Building means turning the source code (`.c` files) into an executable
+program. You need two tools: a **C compiler** and **make**.
 
-**Linux (Debian, Ubuntu...)** :
+**Linux (Debian, Ubuntu...)**:
 
 ```bash
 sudo apt install build-essential git
 git clone https://github.com/fomadev/lith.git
 cd lith
 make
-sudo make install      # optionnel : copie lith dans /usr/local/bin
+sudo make install      # optional: copies lith into /usr/local/bin
 ```
 
-**macOS** :
+**macOS**:
 
 ```bash
-xcode-select --install          # installe le compilateur (clang) et make
+xcode-select --install          # installs the compiler (clang) and make
 git clone https://github.com/fomadev/lith.git
 cd lith
 make
 ```
 
-**Windows** : installez un environnement **MinGW-w64**, au choix :
-- [w64devkit](https://github.com/skeeto/w64devkit) : une archive à décompresser,
-  rien à installer ;
-- [MSYS2](https://www.msys2.org/) : puis `pacman -S mingw-w64-x86_64-gcc make`
-  dans le terminal « MSYS2 MINGW64 ».
+**Windows**: install a **MinGW-w64** environment, either:
+- [w64devkit](https://github.com/skeeto/w64devkit): an archive to extract,
+  nothing to install;
+- [MSYS2](https://www.msys2.org/): then `pacman -S mingw-w64-x86_64-gcc make`
+  in the "MSYS2 MINGW64" terminal.
 
-Puis, dans ce terminal :
+Then, in that terminal:
 
 ```bash
 git clone https://github.com/fomadev/lith.git
@@ -308,295 +307,293 @@ cd lith
 make
 ```
 
-L'exécutable est créé dans `bin/lith` (ou `bin\lith.exe`). Pour vérifier que
-tout est correct :
+The executable is created in `bin/lith` (or `bin\lith.exe`). To check that
+everything is correct:
 
 ```bash
 make test
 ```
 
-Vous devez voir `168 vérifications, 0 échec(s)` (le nombre peut augmenter
-avec les versions).
+You should see `168 vérifications, 0 échec(s)` ("168 checks, 0 failures"; the
+number may grow with new versions).
 
-**Avec HTTPS (facultatif)** : il faut en plus [Rust](https://rustup.rs)
-(`cargo`), qui compile le petit module de chiffrement du dossier `tls/`
-(basé sur la bibliothèque rustls), puis :
+**With HTTPS (optional)**: you also need [Rust](https://rustup.rs) (`cargo`),
+which builds the small encryption module in the `tls/` folder (based on the
+rustls library), then:
 
 ```bash
 make TLS=1
 make TLS=1 test
 ```
 
-Sous Windows avec MinGW, ajoutez une fois pour toutes la cible Rust compatible
-avec gcc : `rustup target add x86_64-pc-windows-gnu` (avec MSYS2, installer
-`mingw-w64-x86_64-rust` suffit). La première compilation télécharge les
-dépendances Rust (versions figées par `tls/Cargo.lock`) et prend une à deux
-minutes ; les suivantes sont instantanées. L'exécutable passe d'environ 300 Ko
-à environ 1,5 Mo. Sans `TLS=1`, rien de tout cela n'intervient.
+On Windows with MinGW, add once and for all the Rust target compatible with
+gcc: `rustup target add x86_64-pc-windows-gnu` (with MSYS2, installing
+`mingw-w64-x86_64-rust` is enough). The first build downloads the Rust
+dependencies (versions pinned by `tls/Cargo.lock`) and takes one or two
+minutes; the next ones are instant. The executable grows from about 300 KB to
+about 1.5 MB. Without `TLS=1`, none of this is involved.
 
-### 2.4 Avec Docker
+### 2.4 With Docker
 
-Si vous connaissez Docker, aucune installation n'est nécessaire :
+If you know Docker, no installation is needed:
 
 ```bash
 docker build -t lith .
 docker run -p 8090:8090 lith
 ```
 
-Le détail est au [chapitre 12.5](#125-déployer-avec-docker).
+Details are in [chapter 12.5](#125-deploying-with-docker).
 
 ---
 
-## Chapitre 3 — Votre premier site en 5 minutes
+## Chapter 3 — Your first site in 5 minutes
 
-### 3.1 Créer le projet
+### 3.1 Create the project
 
-Dans un terminal, placez-vous où vous voulez créer votre site (par exemple vos
-Documents), puis :
+In a terminal, go to where you want to create your site (for example your
+Documents folder), then:
 
 ```bash
-lith init mon-site
+lith init my-site
 ```
 
-LITH crée :
+LITH creates:
 
 ```text
-mon-site/
-├── lith.conf          ← la configuration (tous les réglages, commentés)
+my-site/
+├── lith.conf          ← the configuration (every setting, commented)
 └── public/
-    └── index.html     ← votre page d'accueil
+    └── index.html     ← your home page
 ```
 
-Le dossier **`public`** est la racine de votre site : tout ce que vous y mettez
-devient accessible dans le navigateur.
+The **`public`** folder is the root of your site: everything you put in it
+becomes reachable from the browser.
 
-### 3.2 Démarrer le serveur
+### 3.2 Start the server
 
 ```bash
-cd mon-site
+cd my-site
 lith start
 ```
 
-Vous voyez quelque chose comme :
+You will see something like this ("ready", "press Ctrl+C to stop"):
 
 ```text
 [2026-10-18 10:00:00] INFO  LITH 1.0.0 prêt : http://localhost:8090  (dossier 'public', 32 threads, cache on, gzip on)
 [2026-10-18 10:00:00] INFO  Appuyez sur Ctrl+C pour arrêter.
 ```
 
-### 3.3 Ouvrir le site
+### 3.3 Open the site
 
-Ouvrez votre navigateur à l'adresse **<http://localhost:8090>**.
-La page « Ça marche ! » s'affiche.
+Open your browser at **<http://localhost:8090>**.
+The "Ça marche !" ("It works!") page is displayed.
 
-Dans le terminal, une ligne apparaît pour chaque requête :
+In the terminal, a line appears for each request:
 
 ```text
 [2026-10-18 10:00:05] 127.0.0.1 "GET / HTTP/1.1" 200 772 0ms "Mozilla/5.0 ..."
 ```
 
-On y lit : qui a demandé (`127.0.0.1` = vous), quoi (`GET /`), le résultat
-(`200`), la taille envoyée (772 octets) et le temps de traitement.
+It reads: who asked (`127.0.0.1` = you), what (`GET /`), the result (`200`),
+the size sent (772 bytes) and the processing time.
 
-### 3.4 Modifier le site
+### 3.4 Edit the site
 
-1. Ouvrez `public/index.html` dans votre éditeur (VS Code, Notepad++...).
-2. Changez le texte, enregistrez.
-3. Rechargez la page dans le navigateur (F5) : la modification apparaît.
+1. Open `public/index.html` in your editor (VS Code, Notepad++...).
+2. Change the text, save.
+3. Reload the page in the browser (F5): the change appears.
 
-Ajoutez d'autres fichiers dans `public/` : `public/contact.html` sera
-accessible à `http://localhost:8090/contact.html`, `public/images/logo.png` à
+Add more files in `public/`: `public/contact.html` will be reachable at
+`http://localhost:8090/contact.html`, `public/images/logo.png` at
 `http://localhost:8090/images/logo.png`.
 
-> **Astuce :** Pour ne plus avoir à appuyer sur F5, lancez plutôt `lith start --dev`
-> (chapitre 9) : le navigateur se recharge tout seul.
+> **Tip:** To stop pressing F5, run `lith start --dev` instead (chapter 9):
+> the browser reloads by itself.
 
-### 3.5 Arrêter le serveur
+### 3.5 Stop the server
 
-Dans le terminal, appuyez sur **Ctrl + C**. LITH termine les requêtes en cours
-puis s'arrête :
+In the terminal, press **Ctrl + C**. LITH finishes the requests in progress,
+then stops ("shutting down", "LITH has stopped. See you soon!"):
 
 ```text
 [...] INFO  Arrêt en cours : fin des requêtes en cours...
 [...] INFO  LITH est arrêté. À bientôt !
 ```
 
-### 3.6 Si quelque chose ne va pas
+### 3.6 If something goes wrong
 
 | Message | Cause | Solution |
 |---------|-------|----------|
-| `Le port 8090 est déjà utilisé` | Un autre programme (ou un autre LITH) utilise ce port | `lith start 8091`, ou arrêtez l'autre programme |
-| `Le dossier public 'public' est introuvable` | Vous n'êtes pas dans le bon dossier | `cd mon-site`, ou `lith start -r chemin/vers/le/site` |
-| `lith : commande introuvable` | `lith` n'est pas dans le PATH | Voir 2.2, ou utilisez le chemin complet (`./bin/lith`) |
-| La page affiche `404 Not Found` | Le fichier n'existe pas dans `public/` | Vérifiez le nom exact (majuscules, extension) |
+| `Le port 8090 est déjà utilisé` (port already in use) | Another program (or another LITH) uses this port | `lith start 8091`, or stop the other program |
+| `Le dossier public 'public' est introuvable` (public folder not found) | You are not in the right folder | `cd my-site`, or `lith start -r path/to/the/site` |
+| `lith: command not found` | `lith` is not in the PATH | See 2.2, or use the full path (`./bin/lith`) |
+| The page shows `404 Not Found` | The file does not exist in `public/` | Check the exact name (uppercase, extension) |
 
-D'autres cas sont traités au [chapitre 15](#chapitre-15--dépannage-et-questions-fréquentes).
+More cases are covered in [chapter 15](#chapter-15--troubleshooting-and-faq).
 
 ---
 
-## Chapitre 4 — La ligne de commande
+## Chapter 4 — The command line
 
-Toutes les commandes s'écrivent `lith <commande> [options]`.
+Every command is written `lith <command> [options]`.
 
-### 4.1 Les commandes
+### 4.1 Commands
 
-| Commande | Rôle |
-|----------|------|
-| `lith start [PORT]` | Démarre le serveur. Le port est optionnel (sinon : `lith.conf`, sinon 8090) |
-| `lith stop` | Arrête un LITH lancé en arrière-plan avec `-d` (Linux/macOS) |
-| `lith init [DOSSIER]` | Crée `lith.conf` et `public/index.html` (sans écraser l'existant) |
-| `lith check` | Lit la configuration, signale les erreurs et affiche toutes les valeurs utilisées |
-| `lith health [PORT]` | Vérifie qu'un LITH répond sur cette machine. Code de sortie 0 = OK, 1 = injoignable |
-| `lith version` | Affiche la version (`-v`, `--version` fonctionnent aussi) |
-| `lith help` | Affiche l'aide (`-h`, `--help`) |
+| Command | Role |
+|---------|------|
+| `lith start [PORT]` | Starts the server. The port is optional (otherwise: `lith.conf`, otherwise 8090) |
+| `lith stop` | Stops a LITH started in the background with `-d` (Linux/macOS) |
+| `lith init [FOLDER]` | Creates `lith.conf` and `public/index.html` (without overwriting existing files) |
+| `lith check` | Reads the configuration, reports errors and prints every value in use |
+| `lith health [PORT]` | Checks that a LITH answers on this machine. Exit code 0 = OK, 1 = unreachable |
+| `lith version` | Prints the version (`-v`, `--version` also work) |
+| `lith help` | Prints the help (`-h`, `--help`) |
 
-### 4.2 Les options
+### 4.2 Options
 
-| Option | Effet | Exemple |
-|--------|-------|---------|
-| `-c`, `--config FICHIER` | Utilise un autre fichier que `lith.conf` | `lith start -c prod.conf` |
-| `-p`, `--port PORT` | Port d'écoute | `lith start -p 3000` |
-| `-H`, `--host ADRESSE` | Adresse d'écoute | `lith start -H 127.0.0.1` |
-| `-r`, `--root DOSSIER` | Dossier à servir | `lith start -r ./dist` |
-| `-d`, `--daemon` | Arrière-plan (Linux/macOS) | `lith start -d` |
-| `--dev` | Mode développement : rechargement automatique | `lith start --dev` |
-| `-q`, `--quiet` | N'affiche pas une ligne par requête | `lith start -q` |
+| Option | Effect | Example |
+|--------|--------|---------|
+| `-c`, `--config FILE` | Uses a file other than `lith.conf` | `lith start -c prod.conf` |
+| `-p`, `--port PORT` | Listening port | `lith start -p 3000` |
+| `-H`, `--host ADDRESS` | Listening address | `lith start -H 127.0.0.1` |
+| `-r`, `--root FOLDER` | Folder to serve | `lith start -r ./dist` |
+| `-d`, `--daemon` | Background (Linux/macOS) | `lith start -d` |
+| `--dev` | Development mode: automatic reload | `lith start --dev` |
+| `-q`, `--quiet` | Does not print one line per request | `lith start -q` |
 
-**Ordre de priorité** des réglages : valeur par défaut → `lith.conf` → options
-de la ligne de commande. Une option tapée dans le terminal gagne toujours.
+**Priority order** of settings: default value → `lith.conf` → command-line
+options. An option typed in the terminal always wins.
 
-### 4.3 Exemples courants
+### 4.3 Common examples
 
 ```bash
-# Servir le dossier de build d'une application React sur le port 3000
+# Serve the build folder of a React application on port 3000
 lith start -r ./build -p 3000
 
-# Développer avec rechargement automatique
+# Develop with automatic reload
 lith start --dev
 
-# Vérifier une configuration de production avant de l'utiliser
+# Check a production configuration before using it
 lith check -c /etc/lith/prod.conf
 
-# Lancer en arrière-plan sur un serveur Linux, puis l'arrêter
+# Run in the background on a Linux server, then stop it
 lith start -d
 lith stop
 
-# Dans un script : attendre que le serveur soit prêt
+# In a script: wait until the server is ready
 until lith health; do sleep 1; done
 ```
 
-### 4.4 Codes de sortie
+### 4.4 Exit codes
 
-| Code | Signification |
-|------|---------------|
-| 0 | Succès (ou arrêt normal) |
-| 1 | Erreur : configuration invalide, port occupé, serveur injoignable... |
-| 2 | Commande ou option mal écrite |
+| Code | Meaning |
+|------|---------|
+| 0 | Success (or normal shutdown) |
+| 1 | Error: invalid configuration, port in use, server unreachable... |
+| 2 | Misspelled command or option |
 
 ---
 
-## Chapitre 5 — Le fichier de configuration lith.conf
+## Chapter 5 — The lith.conf configuration file
 
-### 5.1 Le format
+### 5.1 Format
 
-`lith.conf` est un simple fichier texte :
+`lith.conf` is a plain text file:
 
 ```ini
-# Ceci est un commentaire (ligne ignorée)
+# This is a comment (ignored line)
 PORT=8090
 PUBLIC_DIR=public
 ```
 
-Règles :
-- un réglage par ligne, au format `CLE=VALEUR` ;
-- les lignes commençant par `#` (ou `;`) sont des commentaires ;
-- les espaces autour du `=` sont ignorés ; les guillemets autour de la valeur
-  sont facultatifs ;
-- les clés ne sont pas sensibles à la casse (`port` = `PORT`) ;
-- **booléens** : `1`/`0`, `true`/`false`, `on`/`off`, `yes`/`no`, `oui`/`non` ;
-- **tailles** : un nombre d'octets, ou avec une unité : `512K`, `10M`, `1G` ;
-- `AUTH` et `PROXY` peuvent être répétées sur plusieurs lignes.
+Rules:
+- one setting per line, in `KEY=VALUE` format;
+- lines starting with `#` (or `;`) are comments;
+- spaces around `=` are ignored; quotes around the value are optional;
+- keys are case-insensitive (`port` = `PORT`);
+- **booleans**: `1`/`0`, `true`/`false`, `on`/`off`, `yes`/`no`, `oui`/`non`;
+- **sizes**: a number of bytes, or with a unit: `512K`, `10M`, `1G`;
+- `AUTH` and `PROXY` can be repeated on several lines.
 
-**Toutes les clés sont facultatives.** Sans `lith.conf`, LITH démarre avec les
-valeurs par défaut. Une clé inconnue ou une valeur invalide est signalée avec
-le numéro de ligne, et LITH refuse de démarrer : vous ne restez jamais avec une
-configuration à moitié appliquée.
+**Every key is optional.** Without `lith.conf`, LITH starts with the default
+values. An unknown key or an invalid value is reported with its line number,
+and LITH refuses to start: you never end up with a half-applied configuration.
 
-> **Conseil :** Après toute modification, lancez `lith check` : il affiche les erreurs et
-> la configuration réellement utilisée.
+> **Advice:** After any change, run `lith check`: it shows the errors and the
+> configuration actually in use.
 
-### 5.2 Réseau
+### 5.2 Network
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `HOST` | `0.0.0.0` | Adresse d'écoute. `0.0.0.0` = toutes les interfaces IPv4 (accessible depuis le réseau local). `127.0.0.1` = uniquement depuis cette machine. `::` = IPv4 et IPv6 |
-| `PORT` | `8090` | Port d'écoute (1 à 65535). Les ports < 1024 demandent des droits administrateur sous Linux |
-| `THREADS` | `0` (auto) | Nombre de threads de travail. Auto = 8 × nombre de cœurs, entre 16 et 128 |
-| `MAX_PENDING` | `1024` | Connexions pouvant attendre un thread libre. Au-delà : réponse `503` immédiate |
-| `KEEPALIVE_TIMEOUT` | `5` | Secondes pendant lesquelles une connexion inactive reste ouverte pour la requête suivante. `0` désactive le keep-alive |
-| `KEEPALIVE_MAX` | `100` | Nombre maximum de requêtes par connexion |
-| `REQUEST_TIMEOUT` | `10` | Secondes accordées pour envoyer les en-têtes d'une requête (et entre deux morceaux du corps). Protège contre les attaques « slowloris » |
-| `MAX_BODY_SIZE` | `10M` | Taille maximum du corps d'une requête (formulaire, envoi de fichier vers le proxy). Au-delà : `413` |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `HOST` | `0.0.0.0` | Listening address. `0.0.0.0` = every IPv4 interface (reachable from the local network). `127.0.0.1` = only from this machine. `::` = IPv4 and IPv6 |
+| `PORT` | `8090` | Listening port (1 to 65535). Ports below 1024 require administrator rights on Linux |
+| `THREADS` | `0` (auto) | Number of worker threads. Auto = 8 × number of cores, between 16 and 128 |
+| `MAX_PENDING` | `1024` | Connections allowed to wait for a free thread. Beyond that: immediate `503` response |
+| `KEEPALIVE_TIMEOUT` | `5` | Seconds an idle connection stays open for the next request. `0` disables keep-alive |
+| `KEEPALIVE_MAX` | `100` | Maximum number of requests per connection |
+| `REQUEST_TIMEOUT` | `10` | Seconds allowed to send the headers of a request (and between two chunks of the body). Protects against "slowloris" attacks |
+| `MAX_BODY_SIZE` | `10M` | Maximum size of a request body (form, file upload to the proxy). Beyond that: `413` |
 
-### 5.3 Fichiers
+### 5.3 Files
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `PUBLIC_DIR` | `public` | Dossier contenant le site. Chemin relatif (au dossier où l'on lance LITH) ou absolu |
-| `INDEX_FILE` | `index.html` | Fichier servi quand on demande un dossier (`/` ou `/blog/`) |
-| `AUTO_INDEX` | `0` | `1` = afficher la liste des fichiers d'un dossier qui n'a pas d'`index.html` |
-| `SPA_FALLBACK` | `0` | `1` = pour les applications monopage : une adresse inconnue **sans extension** (`/profil/42`) renvoie `index.html` |
-| `HIDE_DOTFILES` | `1` | `1` = les fichiers et dossiers commençant par un point (`.env`, `.git/`) sont introuvables (`404`). Seul `/.well-known/` reste accessible |
-| `CACHE_CONTROL` | `no-cache` | Valeur de l'en-tête `Cache-Control` des fichiers (voir 7.4). Vide = non envoyé |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `PUBLIC_DIR` | `public` | Folder containing the site. Relative path (to the folder where LITH is started) or absolute |
+| `INDEX_FILE` | `index.html` | File served when a folder is requested (`/` or `/blog/`) |
+| `AUTO_INDEX` | `0` | `1` = list the files of a folder that has no `index.html` |
+| `SPA_FALLBACK` | `0` | `1` = for single-page applications: an unknown address **without extension** (`/profile/42`) returns `index.html` |
+| `HIDE_DOTFILES` | `1` | `1` = files and folders starting with a dot (`.env`, `.git/`) cannot be found (`404`). Only `/.well-known/` stays reachable |
+| `CACHE_CONTROL` | `no-cache` | Value of the `Cache-Control` header of files (see 7.4). Empty = not sent |
 
 ### 5.4 Performance
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `USE_CACHE` | `1` | Garder les fichiers en mémoire vive. Un fichier modifié sur le disque est rechargé automatiquement |
-| `CACHE_MAX_SIZE` | `64M` | Mémoire maximum utilisée par le cache. Les fichiers les moins demandés sont retirés en premier |
-| `CACHE_FILE_MAX` | `2M` | Taille maximum d'un fichier pour entrer dans le cache. Les plus gros sont lus directement sur le disque |
-| `GZIP` | `1` | Compresser les fichiers texte (HTML, CSS, JS, JSON, SVG...) pour les navigateurs qui l'acceptent |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `USE_CACHE` | `1` | Keep files in RAM. A file modified on disk is reloaded automatically |
+| `CACHE_MAX_SIZE` | `64M` | Maximum memory used by the cache. The least requested files are evicted first |
+| `CACHE_FILE_MAX` | `2M` | Maximum size of a file to enter the cache. Larger ones are read directly from disk |
+| `GZIP` | `1` | Compress text files (HTML, CSS, JS, JSON, SVG...) for browsers that accept it |
 
-### 5.5 Sécurité
+### 5.5 Security
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `SECURITY_HEADERS` | `1` | Ajoute `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` et `Referrer-Policy` (voir 8.2) |
-| `CSP` | *(vide)* | Valeur de l'en-tête `Content-Security-Policy`. Ex. : `default-src 'self'` |
-| `CORS_ORIGIN` | *(vide)* | Autorise les appels JavaScript depuis un autre site. `*` = tout le monde, ou une origine précise : `https://monsite.fr` |
-| `RATE_LIMIT` | `0` | Nombre de requêtes par seconde autorisées **par adresse IP**. `0` = pas de limite. Au-delà : `429` |
-| `RATE_BURST` | `2 × RATE_LIMIT` | Réserve de requêtes autorisées d'un coup (rafale). Si absente ou inférieure à `RATE_LIMIT`, vaut `2 × RATE_LIMIT` |
-| `AUTH` | — | Protège un chemin par mot de passe : `AUTH=/admin utilisateur:motdepasse`. Répétable (16 max) |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `SECURITY_HEADERS` | `1` | Adds `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN` and `Referrer-Policy` (see 8.2) |
+| `CSP` | *(empty)* | Value of the `Content-Security-Policy` header. E.g.: `default-src 'self'` |
+| `CORS_ORIGIN` | *(empty)* | Allows JavaScript calls from another site. `*` = everyone, or a specific origin: `https://mysite.com` |
+| `RATE_LIMIT` | `0` | Number of requests per second allowed **per IP address**. `0` = no limit. Beyond that: `429` |
+| `RATE_BURST` | `2 × RATE_LIMIT` | Reserve of requests allowed at once (burst). If missing or lower than `RATE_LIMIT`, it is `2 × RATE_LIMIT` |
+| `AUTH` | — | Protects a path with a password: `AUTH=/admin user:password`. Repeatable (16 max) |
 
-### 5.6 Proxy inverse
+### 5.6 Reverse proxy
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `PROXY` | — | `PROXY=/prefixe http://hote:port[, http://hote2:port2...]`. Répétable (16 routes, 8 backends par route) |
-| `PROXY_TIMEOUT` | `30` | Secondes d'attente maximum de la réponse d'un backend. Au-delà : `504` |
-| `HEALTH_CHECK_INTERVAL` | `5` | Secondes entre deux vérifications des backends. `0` = désactivé |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `PROXY` | — | `PROXY=/prefix http://host:port[, http://host2:port2...]`. Repeatable (16 routes, 8 backends per route) |
+| `PROXY_TIMEOUT` | `30` | Maximum seconds to wait for a backend response. Beyond that: `504` |
+| `HEALTH_CHECK_INTERVAL` | `5` | Seconds between two backend checks. `0` = disabled |
 
-### 5.7 Développement et supervision
+### 5.7 Development and monitoring
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `LIVE_RELOAD` | `0` | Recharge le navigateur à chaque modification de fichier (activé par `--dev`) |
-| `STATUS` | `1` | Active `/__lith/status` et `/__lith/metrics` |
-| `STATUS_AUTH` | *(vide)* | `utilisateur:motdepasse`. Sans cette clé, les statistiques ne sont visibles que depuis la machine elle-même |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `LIVE_RELOAD` | `0` | Reloads the browser on every file change (enabled by `--dev`) |
+| `STATUS` | `1` | Enables `/__lith/status` and `/__lith/metrics` |
+| `STATUS_AUTH` | *(empty)* | `user:password`. Without this key, statistics are only visible from the machine itself |
 
-### 5.8 Journaux et processus
+### 5.8 Logs and process
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `LOG_LEVEL` | `info` | Niveau de détail : `debug`, `info`, `warn`, `error` |
-| `LOG_FILE` | *(vide)* | Fichier où écrire les journaux. Vide = dans le terminal (en mode démon : `lith.log`) |
-| `ACCESS_LOG` | `1` | Une ligne par requête (désactivable avec `-q`) |
-| `PID_FILE` | `lith.pid` | Fichier contenant le numéro du processus en mode démon (utilisé par `lith stop`) |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `LOG_LEVEL` | `info` | Level of detail: `debug`, `info`, `warn`, `error` |
+| `LOG_FILE` | *(empty)* | File to write logs to. Empty = in the terminal (in daemon mode: `lith.log`) |
+| `ACCESS_LOG` | `1` | One line per request (can be disabled with `-q`) |
+| `PID_FILE` | `lith.pid` | File holding the process number in daemon mode (used by `lith stop`) |
 
-### 5.9 Exemples de configurations complètes
+### 5.9 Complete configuration examples
 
-**Développement local**
+**Local development**
 
 ```ini
 HOST=127.0.0.1
@@ -605,11 +602,11 @@ LIVE_RELOAD=1
 CACHE_CONTROL=no-store
 ```
 
-**Application React/Vue en production**
+**React/Vue application in production**
 
 ```ini
 PORT=8090
-PUBLIC_DIR=/srv/mon-app/dist
+PUBLIC_DIR=/srv/my-app/dist
 SPA_FALLBACK=1
 GZIP=1
 USE_CACHE=1
@@ -618,460 +615,444 @@ RATE_LIMIT=50
 CSP=default-src 'self'; img-src 'self' data:
 ```
 
-**Site + API Node.js**
+**Site + Node.js API**
 
 ```ini
 PORT=8090
 PUBLIC_DIR=public
 PROXY=/api http://127.0.0.1:3000
-AUTH=/admin admin:un-mot-de-passe-long
+AUTH=/admin admin:a-long-password
 ```
 
-**Site public en HTTPS direct** (exécutable compilé avec `make TLS=1`, voir 5.10)
+**Public site with direct HTTPS** (executable built with `make TLS=1`, see 5.10)
 
 ```ini
 PORT=80
 TLS_PORT=443
-TLS_CERT=/etc/letsencrypt/live/monsite.fr/fullchain.pem
-TLS_KEY=/etc/letsencrypt/live/monsite.fr/privkey.pem
+TLS_CERT=/etc/letsencrypt/live/mysite.com/fullchain.pem
+TLS_KEY=/etc/letsencrypt/live/mysite.com/privkey.pem
 TLS_REDIRECT=1
 HSTS=31536000
 ```
 
 ### 5.10 HTTPS (`make TLS=1`)
 
-Ces clés ne servent qu'avec un exécutable compilé avec `make TLS=1`
-(chapitre 2.3). Avec l'exécutable standard, `TLS_PORT` est **refusé** avec un
-message clair : LITH ne démarre jamais en clair alors que vous attendiez du
-chiffrement.
+These keys only apply to an executable built with `make TLS=1` (chapter 2.3).
+With the standard executable, `TLS_PORT` is **rejected** with a clear message:
+LITH never starts in plain text when you expected encryption.
 
-| Clé | Défaut | Description |
-|-----|--------|-------------|
-| `TLS_PORT` | `0` | Port HTTPS (`443` en production, `8443` pour essayer). `0` = HTTPS désactivé. Le port HTTP (`PORT`) reste ouvert en parallèle et doit être différent |
-| `TLS_CERT` | *(vide)* | Certificat au format PEM, **chaîne complète** (votre certificat suivi des certificats intermédiaires : `fullchain.pem` chez Let's Encrypt) |
-| `TLS_KEY` | *(vide)* | Clé privée au format PEM (PKCS#8, RSA ou EC : `privkey.pem` chez Let's Encrypt). Protégez ce fichier (`chmod 600`) |
-| `TLS_REDIRECT` | `0` | `1` = le port HTTP répond par une redirection vers `https://` (`301` pour `GET`/`HEAD`, `308` pour les autres méthodes, qui conserve le corps). Restent en clair : `/__lith/health` (sondes, `lith health`) et `/.well-known/acme-challenge/` (validation Let's Encrypt) |
-| `HSTS` | `0` | Durée en secondes de l'en-tête `Strict-Transport-Security`, envoyé uniquement en HTTPS : le navigateur n'utilisera plus que HTTPS pour ce site pendant cette durée. Commencez petit (`300`), puis `31536000` (un an) une fois sûr de vous |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `TLS_PORT` | `0` | HTTPS port (`443` in production, `8443` to try it out). `0` = HTTPS disabled. The HTTP port (`PORT`) stays open in parallel and must be different |
+| `TLS_CERT` | *(empty)* | Certificate in PEM format, **full chain** (your certificate followed by the intermediate certificates: `fullchain.pem` with Let's Encrypt) |
+| `TLS_KEY` | *(empty)* | Private key in PEM format (PKCS#8, RSA or EC: `privkey.pem` with Let's Encrypt). Protect this file (`chmod 600`) |
+| `TLS_REDIRECT` | `0` | `1` = the HTTP port answers with a redirect to `https://` (`301` for `GET`/`HEAD`, `308` for other methods, which keeps the body). These stay in plain HTTP: `/__lith/health` (probes, `lith health`) and `/.well-known/acme-challenge/` (Let's Encrypt validation) |
+| `HSTS` | `0` | Duration in seconds of the `Strict-Transport-Security` header, sent over HTTPS only: the browser will use nothing but HTTPS for this site during that time. Start small (`300`), then `31536000` (one year) once you are confident |
 
-Les chemins relatifs sont relatifs au dossier où l'on lance LITH (ils sont
-convertis en chemins absolus en mode démon). `lith check` charge réellement le
-certificat et la clé et signale tout problème (fichier absent, PEM illisible,
-clé qui ne correspond pas au certificat).
+Relative paths are relative to the folder where LITH is started (they are
+converted to absolute paths in daemon mode). `lith check` actually loads the
+certificate and the key and reports any problem (missing file, unreadable PEM,
+key that does not match the certificate).
 
-Ce que fait LITH en HTTPS : TLS 1.3 et TLS 1.2 uniquement, suites de
-chiffrement modernes, annonce de HTTP/1.1 par ALPN, reprise de session. Tout le
-reste fonctionne à l'identique : fichiers, gzip, cache, `Range`, keep-alive,
-proxy (le backend reçoit `X-Forwarded-Proto: https`), live reload en `wss://`,
-statistiques. Les protections contre les clients lents s'appliquent aussi à la
-poignée de main TLS (`REQUEST_TIMEOUT`).
+What LITH does over HTTPS: TLS 1.3 and TLS 1.2 only, modern cipher suites,
+HTTP/1.1 announced through ALPN, session resumption. Everything else works the
+same way: files, gzip, cache, `Range`, keep-alive, proxy (the backend receives
+`X-Forwarded-Proto: https`), live reload over `wss://`, statistics. The
+protections against slow clients also apply to the TLS handshake
+(`REQUEST_TIMEOUT`).
 
-Pour essayer en local avec un certificat auto-signé (le navigateur affichera un
-avertissement, c'est normal) :
+To try it locally with a self-signed certificate (the browser will show a
+warning, that is expected):
 
 ```bash
 openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout key.pem -out cert.pem \
   -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 printf 'TLS_PORT=8443\nTLS_CERT=cert.pem\nTLS_KEY=key.pem\n' >> lith.conf
-lith start          # puis https://localhost:8443
+lith start          # then https://localhost:8443
 ```
 
-> **Astuce :** Sous Git Bash (Windows), préfixez la commande `openssl` par
-> `MSYS_NO_PATHCONV=1` pour que `/CN=localhost` ne soit pas pris pour un chemin.
+> **Tip:** In Git Bash (Windows), prefix the `openssl` command with
+> `MSYS_NO_PATHCONV=1` so that `/CN=localhost` is not taken for a path.
 
 ---
 
-## Chapitre 6 — Servir un site web
+## Chapter 6 — Serving a website
 
-### 6.1 Du chemin de l'URL au fichier
+### 6.1 From the URL path to the file
 
-LITH ajoute le chemin de l'URL au dossier `PUBLIC_DIR` :
+LITH appends the URL path to the `PUBLIC_DIR` folder:
 
-| URL demandée | Fichier envoyé |
-|--------------|----------------|
+| Requested URL | File sent |
+|---------------|-----------|
 | `/` | `public/index.html` |
 | `/contact.html` | `public/contact.html` |
 | `/css/style.css` | `public/css/style.css` |
 | `/blog/` | `public/blog/index.html` |
-| `/blog` | redirection `301` vers `/blog/` (pour que les liens relatifs de la page fonctionnent) |
+| `/blog` | `301` redirect to `/blog/` (so that the page's relative links work) |
 
-Les caractères spéciaux sont décodés : `/mon%20fichier.html` donne
-`public/mon fichier.html`, et les noms accentués (`café.html`) fonctionnent sur
-tous les systèmes, Windows compris.
+Special characters are decoded: `/my%20file.html` gives `public/my file.html`,
+and accented names (`café.html`) work on every system, Windows included.
 
-### 6.2 Les types de fichiers (MIME)
+### 6.2 File types (MIME)
 
-Le navigateur doit savoir ce qu'il reçoit. LITH l'indique dans l'en-tête
-`Content-Type` d'après l'extension : `.html`, `.css`, `.js`, `.mjs`, `.json`,
-`.svg`, `.png`, `.jpg`, `.webp`, `.avif`, `.gif`, `.ico`, `.woff2`, `.ttf`,
-`.mp4`, `.webm`, `.mp3`, `.ogg`, `.pdf`, `.wasm`, `.zip`, `.webmanifest`,
-`.xml`, `.txt`, `.md`, `.csv`... (40 types). Un fichier d'extension inconnue
-est envoyé comme `application/octet-stream` : le navigateur proposera de le
-télécharger.
+The browser needs to know what it receives. LITH states it in the
+`Content-Type` header based on the extension: `.html`, `.css`, `.js`, `.mjs`,
+`.json`, `.svg`, `.png`, `.jpg`, `.webp`, `.avif`, `.gif`, `.ico`, `.woff2`,
+`.ttf`, `.mp4`, `.webm`, `.mp3`, `.ogg`, `.pdf`, `.wasm`, `.zip`,
+`.webmanifest`, `.xml`, `.txt`, `.md`, `.csv`... (40 types). A file with an
+unknown extension is sent as `application/octet-stream`: the browser will offer
+to download it.
 
-### 6.3 Pages d'erreur personnalisées
+### 6.3 Custom error pages
 
-Par défaut, LITH affiche une page d'erreur sobre. Pour utiliser la vôtre, créez
-dans `public/` un fichier nommé d'après le code : `404.html`, `403.html`,
-`500.html`... LITH l'enverra automatiquement, avec le bon code de statut.
+By default, LITH shows a plain error page. To use your own, create in
+`public/` a file named after the code: `404.html`, `403.html`, `500.html`...
+LITH sends it automatically, with the right status code.
 
-### 6.4 Applications monopage (React, Vue, Angular, Svelte...)
+### 6.4 Single-page applications (React, Vue, Angular, Svelte...)
 
-Ces applications gèrent elles-mêmes leurs adresses (`/profil/42`,
-`/parametres`) dans le navigateur. Mais si l'utilisateur recharge la page ou
-ouvre un lien directement, le serveur reçoit `/profil/42`, qui n'existe pas sur
-le disque.
+These applications manage their own addresses (`/profile/42`, `/settings`) in
+the browser. But if the user reloads the page or opens a link directly, the
+server receives `/profile/42`, which does not exist on disk.
 
-Avec `SPA_FALLBACK=1`, LITH renvoie `index.html` pour toute adresse inconnue
-**sans extension** ; l'application prend ensuite le relais. Les fichiers
-manquants avec extension (`/logo.png`) répondent toujours `404`, ce qui évite
-de masquer de vraies erreurs.
+With `SPA_FALLBACK=1`, LITH returns `index.html` for any unknown address
+**without extension**; the application then takes over. Missing files with an
+extension (`/logo.png`) still answer `404`, so real errors are not hidden.
 
 ```ini
 PUBLIC_DIR=dist
 SPA_FALLBACK=1
 ```
 
-### 6.5 Lister le contenu d'un dossier
+### 6.5 Listing the contents of a folder
 
-Avec `AUTO_INDEX=1`, un dossier sans `index.html` affiche la liste de ses
-fichiers (nom, taille, date), triée, dossiers en premier. Pratique pour
-partager des fichiers sur un réseau local. Les fichiers cachés n'y apparaissent
-pas tant que `HIDE_DOTFILES=1`.
+With `AUTO_INDEX=1`, a folder without `index.html` shows the list of its files
+(name, size, date), sorted, folders first. Handy for sharing files on a local
+network. Hidden files do not appear while `HIDE_DOTFILES=1`.
 
-### 6.6 Les fichiers cachés
+### 6.6 Hidden files
 
-Les fichiers commençant par un point contiennent souvent des secrets : `.env`
-(mots de passe), `.git/` (tout l'historique du code), `.htpasswd`... Avec
-`HIDE_DOTFILES=1` (par défaut), LITH répond `404` comme s'ils n'existaient pas.
-Exception : `/.well-known/`, utilisé par des standards du web (certificats,
-`security.txt`...).
+Files starting with a dot often contain secrets: `.env` (passwords), `.git/`
+(the whole code history), `.htpasswd`... With `HIDE_DOTFILES=1` (the default),
+LITH answers `404` as if they did not exist. Exception: `/.well-known/`, used by
+web standards (certificates, `security.txt`...).
 
-### 6.7 Les méthodes acceptées
+### 6.7 Accepted methods
 
-Pour les fichiers statiques, LITH accepte `GET`, `HEAD` et `OPTIONS`. Une autre
-méthode (`POST`, `PUT`, `DELETE`...) répond `405 Method Not Allowed`. Ces
-méthodes sont en revanche transmises telles quelles aux applications derrière
-le proxy (chapitre 10).
+For static files, LITH accepts `GET`, `HEAD` and `OPTIONS`. Any other method
+(`POST`, `PUT`, `DELETE`...) answers `405 Method Not Allowed`. These methods
+are, however, forwarded as they are to applications behind the proxy
+(chapter 10).
 
-### 6.8 Les adresses réservées `/__lith/`
+### 6.8 Reserved `/__lith/` addresses
 
-Les chemins commençant par `/__lith/` sont réservés à LITH :
+Paths starting with `/__lith/` are reserved for LITH:
 
-| Adresse | Rôle |
+| Address | Role |
 |---------|------|
-| `/__lith/health` | Répond `OK` : sert aux sondes de disponibilité (Docker, Kubernetes) |
-| `/__lith/status` | Statistiques en JSON (chapitre 11) |
-| `/__lith/metrics` | Statistiques au format Prometheus (chapitre 11) |
-| `/__lith/livereload` | Canal WebSocket du rechargement automatique (chapitre 9) |
-| `/__lith/echo` | Diagnostic : en `POST`, renvoie ce que LITH a reçu (taille, type) |
+| `/__lith/health` | Answers `OK`: used by availability probes (Docker, Kubernetes) |
+| `/__lith/status` | Statistics in JSON (chapter 11) |
+| `/__lith/metrics` | Statistics in Prometheus format (chapter 11) |
+| `/__lith/livereload` | WebSocket channel of the automatic reload (chapter 9) |
+| `/__lith/echo` | Diagnostics: with `POST`, returns what LITH received (size, type) |
 
-### 6.9 Voir le site depuis un téléphone ou un autre ordinateur
+### 6.9 Viewing the site from a phone or another computer
 
-1. Laissez `HOST=0.0.0.0` (valeur par défaut).
-2. Trouvez l'adresse de votre ordinateur sur le réseau : `ipconfig` (Windows),
-   `ip addr` (Linux), *Réglages → Réseau* (macOS). Par exemple `192.168.1.20`.
-3. Sur le téléphone, connecté au **même Wi-Fi**, ouvrez `http://192.168.1.20:8090`.
-4. Si rien ne s'affiche, autorisez LITH dans le **pare-feu** (Windows le
-   demande généralement au premier lancement).
-
----
-
-## Chapitre 7 — Performance
-
-LITH est rapide sans réglage. Ce chapitre explique pourquoi, et comment
-l'ajuster.
-
-### 7.1 Le cache mémoire
-
-Lire un fichier sur le disque prend du temps ; le lire en mémoire vive est
-quasi instantané. Avec `USE_CACHE=1`, la première fois qu'un fichier est
-demandé, LITH le garde en mémoire. Les fois suivantes, il l'envoie directement
-depuis la RAM.
-
-- **Toujours à jour** : à chaque demande, LITH vérifie la date de modification
-  du fichier. S'il a changé, il est rechargé. Vous pouvez modifier votre site
-  sans redémarrer le serveur.
-- **Borné** : la mémoire totale ne dépasse pas `CACHE_MAX_SIZE`. Quand c'est
-  plein, les fichiers les moins récemment demandés sont retirés (algorithme
-  *LRU*).
-- Les fichiers plus gros que `CACHE_FILE_MAX` (vidéos, archives) ne passent pas
-  par le cache : ils sont envoyés par morceaux depuis le disque, sans jamais
-  être chargés entièrement en mémoire. Sous Linux, LITH utilise `sendfile()`,
-  qui fait passer les données du disque au réseau sans même les copier dans le
-  programme.
-
-### 7.2 La compression gzip
-
-Les fichiers texte se compressent très bien : un fichier HTML ou JavaScript
-perd souvent **60 à 75 %** de sa taille. Avec `GZIP=1`, si le navigateur
-l'accepte (en-tête `Accept-Encoding: gzip`, envoyé par tous les navigateurs
-modernes), LITH envoie la version compressée.
-
-- La version compressée est calculée **une seule fois** puis gardée en cache.
-- Les images, vidéos et archives (déjà compressées) ne sont pas recompressées.
-- Les fichiers de moins de 256 octets non plus (aucun gain).
-- La compression est **intégrée à LITH** (aucune bibliothèque externe).
-
-### 7.3 « Vous avez déjà la bonne version » : ETag et 304
-
-Chaque fichier envoyé porte une **étiquette** (`ETag`) et sa date de
-modification (`Last-Modified`). Quand le navigateur redemande le fichier, il
-présente son étiquette ; si le fichier n'a pas changé, LITH répond simplement
-`304 Not Modified`, sans renvoyer le contenu. Résultat : des pages qui
-s'affichent instantanément et une bande passante économisée.
-
-### 7.4 Régler le cache du navigateur (`CACHE_CONTROL`)
-
-L'en-tête `Cache-Control` dit au navigateur combien de temps garder un fichier
-sans redemander :
-
-| Valeur | Effet | Quand l'utiliser |
-|--------|-------|------------------|
-| `no-cache` (défaut) | Le navigateur garde le fichier mais vérifie à chaque fois (réponse `304` très légère) | Le bon choix par défaut : toujours à jour, et rapide |
-| `no-store` | Rien n'est gardé | Développement (activé par `--dev`) |
-| `public, max-age=3600` | Gardé 1 heure sans aucune vérification | Sites qui changent rarement |
-| `public, max-age=31536000, immutable` | Gardé 1 an | Fichiers dont le nom change à chaque version (`app.3f2a1c.js`, produits par Vite/Webpack) |
-
-### 7.5 Les requêtes partielles (vidéo, reprise de téléchargement)
-
-Quand vous avancez dans une vidéo, le navigateur ne demande qu'un morceau du
-fichier : `Range: bytes=1000000-2000000`. LITH répond `206 Partial Content`
-avec exactement ce morceau. Cela permet la lecture fluide des vidéos et audios,
-et la reprise des téléchargements interrompus.
-
-### 7.6 Keep-alive et threads
-
-- **Keep-alive** : ouvrir une connexion réseau coûte du temps. LITH garde la
-  connexion ouverte quelques secondes (`KEEPALIVE_TIMEOUT`) pour que le
-  navigateur y fasse passer les requêtes suivantes (CSS, images...).
-- **Threads** : LITH traite plusieurs visiteurs en même temps grâce à un groupe
-  de « travailleurs » (threads) créés au démarrage. Le nombre automatique
-  convient presque toujours. Si beaucoup de visiteurs restent connectés
-  longtemps, augmentez `THREADS`.
-- **Sous forte charge**, quand des visiteurs attendent un thread libre, LITH
-  ferme les connexions inactives après chaque réponse pour servir tout le monde
-  équitablement.
-
-### 7.7 Quelques ordres de grandeur
-
-Sur un ordinateur portable ordinaire, LITH 1.0.0 sert plusieurs milliers de
-requêtes par seconde avec moins de 10 Mo de mémoire. Les tests automatiques
-envoient des milliers de requêtes simultanées sans erreur ni fuite de
-ressources. Le facteur limitant est généralement le réseau, pas LITH.
+1. Keep `HOST=0.0.0.0` (the default value).
+2. Find your computer's address on the network: `ipconfig` (Windows),
+   `ip addr` (Linux), *Settings → Network* (macOS). For example `192.168.1.20`.
+3. On the phone, connected to the **same Wi-Fi**, open `http://192.168.1.20:8090`.
+4. If nothing shows up, allow LITH in the **firewall** (Windows usually asks
+   on first launch).
 
 ---
 
-## Chapitre 8 — Sécurité
+## Chapter 7 — Performance
 
-### 8.1 Les protections automatiques
+LITH is fast without any tuning. This chapter explains why, and how to adjust it.
 
-Sans aucune configuration, LITH :
+### 7.1 In-memory cache
 
-| Protection | Contre quoi |
-|------------|-------------|
-| Refuse `../` dans les chemins, même encodé (`%2e%2e`) ou avec `\` | Lire des fichiers hors du site (`/../../etc/passwd`) → `403` |
-| Refuse l'octet nul `%00` et les pièges propres à Windows (`..` suivi d'espaces ou de points, `:`) | Les variantes de la même attaque |
-| Cache les fichiers `.env`, `.git/`... | La fuite de mots de passe ou de code source |
-| Limite les en-têtes à 16 Ko, l'URL à 2048 caractères, le corps à `MAX_BODY_SIZE` | L'épuisement de la mémoire |
-| Coupe les requêtes trop lentes (`REQUEST_TIMEOUT`) | L'attaque « slowloris » (occuper le serveur en envoyant une requête octet par octet) |
-| Rejette les requêtes ambiguës (deux `Content-Length`, `Content-Length` + `Transfer-Encoding`...) | Le « request smuggling » (tromper un proxy placé devant) |
-| Refuse les connexions au-delà de `MAX_PENDING` avec `503` | La saturation |
-| Ajoute des en-têtes de sécurité | Voir 8.2 |
+Reading a file from disk takes time; reading it from RAM is almost instant.
+With `USE_CACHE=1`, the first time a file is requested, LITH keeps it in
+memory. The next times, it sends it straight from RAM.
 
-### 8.2 Les en-têtes de sécurité
+- **Always up to date**: on every request, LITH checks the file's modification
+  date. If it changed, it is reloaded. You can edit your site without
+  restarting the server.
+- **Bounded**: total memory never exceeds `CACHE_MAX_SIZE`. When full, the
+  least recently requested files are evicted (*LRU* algorithm).
+- Files larger than `CACHE_FILE_MAX` (videos, archives) bypass the cache: they
+  are sent in chunks from disk, never fully loaded into memory. On Linux, LITH
+  uses `sendfile()`, which moves data from disk to network without even
+  copying it into the program.
 
-Avec `SECURITY_HEADERS=1` (par défaut), chaque réponse contient :
+### 7.2 Gzip compression
 
-- `X-Content-Type-Options: nosniff` : le navigateur ne « devine » pas le type
-  d'un fichier (empêche d'exécuter un fichier texte comme du JavaScript) ;
-- `X-Frame-Options: SAMEORIGIN` : votre site ne peut pas être affiché dans un
-  cadre (`<iframe>`) sur un autre site, ce qui bloque le *clickjacking* ;
-- `Referrer-Policy: strict-origin-when-cross-origin` : les adresses complètes
-  de vos pages ne sont pas transmises aux autres sites.
+Text files compress very well: an HTML or JavaScript file often loses
+**60 to 75%** of its size. With `GZIP=1`, if the browser accepts it
+(`Accept-Encoding: gzip` header, sent by every modern browser), LITH sends the
+compressed version.
+
+- The compressed version is computed **only once** and then cached.
+- Images, videos and archives (already compressed) are not compressed again.
+- Neither are files under 256 bytes (no gain).
+- Compression is **built into LITH** (no external library).
+
+### 7.3 "You already have the right version": ETag and 304
+
+Every file sent carries a **tag** (`ETag`) and its modification date
+(`Last-Modified`). When the browser asks for the file again, it presents its
+tag; if the file has not changed, LITH simply answers `304 Not Modified`,
+without sending the content again. Result: pages that display instantly and
+saved bandwidth.
+
+### 7.4 Tuning the browser cache (`CACHE_CONTROL`)
+
+The `Cache-Control` header tells the browser how long to keep a file without
+asking again:
+
+| Value | Effect | When to use it |
+|-------|--------|----------------|
+| `no-cache` (default) | The browser keeps the file but checks every time (very light `304` response) | The right default: always up to date, and fast |
+| `no-store` | Nothing is kept | Development (enabled by `--dev`) |
+| `public, max-age=3600` | Kept 1 hour without any check | Sites that rarely change |
+| `public, max-age=31536000, immutable` | Kept 1 year | Files whose name changes with each version (`app.3f2a1c.js`, produced by Vite/Webpack) |
+
+### 7.5 Partial requests (video, download resume)
+
+When you skip ahead in a video, the browser only asks for a piece of the
+file: `Range: bytes=1000000-2000000`. LITH answers `206 Partial Content` with
+exactly that piece. This allows smooth video and audio playback, and resuming
+interrupted downloads.
+
+### 7.6 Keep-alive and threads
+
+- **Keep-alive**: opening a network connection takes time. LITH keeps the
+  connection open for a few seconds (`KEEPALIVE_TIMEOUT`) so that the browser
+  can send the next requests over it (CSS, images...).
+- **Threads**: LITH serves several visitors at the same time thanks to a group
+  of "workers" (threads) created at startup. The automatic number almost always
+  fits. If many visitors stay connected for a long time, increase `THREADS`.
+- **Under heavy load**, when visitors are waiting for a free thread, LITH
+  closes idle connections after each response to serve everyone fairly.
+
+### 7.7 Orders of magnitude
+
+On an ordinary laptop, LITH 1.0.0 serves several thousand requests per second
+with less than 10 MB of memory. The automated tests send thousands of
+concurrent requests without errors or resource leaks. The limiting factor is
+usually the network, not LITH.
+
+---
+
+## Chapter 8 — Security
+
+### 8.1 Automatic protections
+
+Without any configuration, LITH:
+
+| Protection | Against what |
+|------------|--------------|
+| Rejects `../` in paths, even encoded (`%2e%2e`) or with `\` | Reading files outside the site (`/../../etc/passwd`) → `403` |
+| Rejects the null byte `%00` and Windows-specific pitfalls (`..` followed by spaces or dots, `:`) | Variants of the same attack |
+| Hides `.env`, `.git/`... files | Leaking passwords or source code |
+| Limits headers to 16 KB, the URL to 2048 characters, the body to `MAX_BODY_SIZE` | Memory exhaustion |
+| Cuts off requests that are too slow (`REQUEST_TIMEOUT`) | The "slowloris" attack (tying up the server by sending a request byte by byte) |
+| Rejects ambiguous requests (two `Content-Length`, `Content-Length` + `Transfer-Encoding`...) | "Request smuggling" (fooling a proxy placed in front) |
+| Refuses connections beyond `MAX_PENDING` with `503` | Saturation |
+| Adds security headers | See 8.2 |
+
+### 8.2 Security headers
+
+With `SECURITY_HEADERS=1` (the default), every response contains:
+
+- `X-Content-Type-Options: nosniff`: the browser does not "guess" the type of
+  a file (prevents running a text file as JavaScript);
+- `X-Frame-Options: SAMEORIGIN`: your site cannot be displayed in a frame
+  (`<iframe>`) on another site, which blocks *clickjacking*;
+- `Referrer-Policy: strict-origin-when-cross-origin`: the full addresses of
+  your pages are not passed on to other sites.
 
 ### 8.3 Content-Security-Policy (CSP)
 
-La CSP indique au navigateur d'où le site a le droit de charger des scripts,
-styles et images. C'est la meilleure protection contre les failles XSS
-(injection de JavaScript). Elle n'est pas activée par défaut car une CSP mal
-réglée peut casser un site. Pour commencer :
+The CSP tells the browser where the site is allowed to load scripts, styles
+and images from. It is the best protection against XSS vulnerabilities
+(JavaScript injection). It is not enabled by default because a badly tuned CSP
+can break a site. To start:
 
 ```ini
 CSP=default-src 'self'
 ```
 
-Ajoutez ensuite les sources dont vous avez besoin, par exemple
+Then add the sources you need, for example
 `CSP=default-src 'self'; img-src 'self' data:; font-src https://fonts.gstatic.com`.
-Ouvrez la console du navigateur (F12) : chaque blocage y est signalé.
+Open the browser console (F12): every block is reported there.
 
-> **Attention :** Le rechargement automatique (`--dev`) injecte un petit script dans les
-> pages : n'activez pas une CSP stricte en même temps que `--dev`.
+> **Warning:** Automatic reload (`--dev`) injects a small script into pages:
+> do not enable a strict CSP together with `--dev`.
 
-### 8.4 CORS : autoriser d'autres sites à appeler le vôtre
+### 8.4 CORS: allowing other sites to call yours
 
-Par sécurité, un navigateur interdit au JavaScript de `site-a.fr` de lire les
-réponses de `site-b.fr`. Si vous voulez l'autoriser (par exemple pour une API
-publique ou des fichiers JSON) :
-
-```ini
-CORS_ORIGIN=*                     # tout le monde
-CORS_ORIGIN=https://site-a.fr     # un seul site
-```
-
-LITH ajoute alors `Access-Control-Allow-Origin` et répond aux requêtes de
-vérification préalable (`OPTIONS`, dites *preflight*).
-
-### 8.5 Limiter le nombre de requêtes par visiteur
+For safety, a browser forbids JavaScript from `site-a.com` to read the
+responses of `site-b.com`. If you want to allow it (for example for a public
+API or JSON files):
 
 ```ini
-RATE_LIMIT=20      # 20 requêtes par seconde et par adresse IP
-RATE_BURST=40      # avec une réserve de 40 d'un coup
+CORS_ORIGIN=*                      # everyone
+CORS_ORIGIN=https://site-a.com     # a single site
 ```
 
-C'est l'algorithme du **seau à jetons** : chaque visiteur a un seau de
-`RATE_BURST` jetons, qui se remplit de `RATE_LIMIT` jetons par seconde. Chaque
-requête consomme un jeton ; seau vide = réponse `429 Too Many Requests` avec
-`Retry-After: 1`. Une page normale (HTML + CSS + images) passe sans souci ; un
-robot qui envoie des centaines de requêtes est freiné.
+LITH then adds `Access-Control-Allow-Origin` and answers the prior check
+requests (`OPTIONS`, called *preflight*).
 
-> **Attention :** Si LITH est derrière un autre proxy (Caddy, nginx), toutes les requêtes
-> semblent venir de `127.0.0.1` : faites alors la limitation dans ce proxy.
-
-### 8.6 Protéger une zone par mot de passe
+### 8.5 Limiting the number of requests per visitor
 
 ```ini
-AUTH=/admin admin:un-mot-de-passe-long
-AUTH=/prive/rapports equipe:autre-mot-de-passe
+RATE_LIMIT=20      # 20 requests per second per IP address
+RATE_BURST=40      # with a reserve of 40 at once
 ```
 
-Le navigateur affiche une fenêtre de connexion pour `/admin` et tout ce qui est
-dessous (`/admin/stats.html`...), mais pas pour `/administration` (le préfixe
-doit être suivi de `/` ou de la fin du chemin). La règle la plus précise
-l'emporte. `AUTH` protège aussi les routes du proxy.
+This is the **token bucket** algorithm: each visitor has a bucket of
+`RATE_BURST` tokens, refilled with `RATE_LIMIT` tokens per second. Each request
+uses one token; empty bucket = `429 Too Many Requests` response with
+`Retry-After: 1`. A normal page (HTML + CSS + images) goes through easily; a
+bot sending hundreds of requests is slowed down.
 
-> **Important :** l'authentification Basic envoie le mot de passe à chaque
-> requête, simplement encodé (pas chiffré). Sur Internet, utilisez-la
-> **uniquement derrière HTTPS** (chapitre 12.4). Le mot de passe étant écrit en
-> clair dans `lith.conf`, protégez ce fichier (`chmod 600 lith.conf` sous Linux).
+> **Warning:** If LITH is behind another proxy (Caddy, nginx), every request
+> seems to come from `127.0.0.1`: in that case, do the rate limiting in that proxy.
+
+### 8.6 Protecting an area with a password
+
+```ini
+AUTH=/admin admin:a-long-password
+AUTH=/private/reports team:another-password
+```
+
+The browser shows a login window for `/admin` and everything under it
+(`/admin/stats.html`...), but not for `/administration` (the prefix must be
+followed by `/` or the end of the path). The most specific rule wins. `AUTH`
+also protects proxy routes.
+
+> **Important:** Basic authentication sends the password with every request,
+> merely encoded (not encrypted). On the Internet, use it **only behind
+> HTTPS** (chapter 12.4). Since the password is written in plain text in
+> `lith.conf`, protect that file (`chmod 600 lith.conf` on Linux).
 
 ### 8.7 HTTPS
 
-HTTPS chiffre les échanges (le cadenas du navigateur) et prouve au visiteur
-qu'il parle bien à votre site. Il est indispensable pour un site public, et
-obligatoire dès qu'il y a un mot de passe (`AUTH`) ou un formulaire. Deux
-possibilités :
+HTTPS encrypts the exchanges (the browser padlock) and proves to the visitor
+that they are really talking to your site. It is essential for a public site,
+and mandatory as soon as there is a password (`AUTH`) or a form. Two options:
 
-- **HTTPS intégré** : compilez LITH avec `make TLS=1`, puis indiquez
-  `TLS_PORT`, `TLS_CERT` et `TLS_KEY` (chapitre 5.10). Le chiffrement est
-  confié à un petit module écrit en Rust avec la bibliothèque **rustls**, sûre
-  en mémoire et auditée (chapitre 16.4) ; le reste de LITH ne change pas.
-- **HTTPS devant LITH** : un outil comme **Caddy** obtient et renouvelle les
-  certificats tout seul, et transmet les requêtes à LITH en local.
+- **Built-in HTTPS**: build LITH with `make TLS=1`, then set `TLS_PORT`,
+  `TLS_CERT` and `TLS_KEY` (chapter 5.10). Encryption is handled by a small
+  module written in Rust with the **rustls** library, memory-safe and audited
+  (chapter 16.4); the rest of LITH does not change.
+- **HTTPS in front of LITH**: a tool such as **Caddy** obtains and renews
+  certificates by itself, and forwards requests to LITH locally.
 
-Le pas-à-pas des deux méthodes est au [chapitre 12.4](#124-ajouter-https).
+The step-by-step guide for both methods is in [chapter 12.4](#124-adding-https).
 
-Une fois HTTPS en place :
+Once HTTPS is in place:
 
-- `TLS_REDIRECT=1` renvoie automatiquement les visiteurs de `http://` vers
-  `https://` ;
-- `HSTS` demande au navigateur de ne plus jamais revenir en clair. Attention :
-  le navigateur s'en souvient pendant toute la durée indiquée, même si vous
-  retirez HTTPS ensuite. Testez d'abord avec une petite valeur (`HSTS=300`).
+- `TLS_REDIRECT=1` automatically sends visitors from `http://` to `https://`;
+- `HSTS` asks the browser never to come back in plain text. Warning: the
+  browser remembers it for the whole duration given, even if you remove HTTPS
+  afterwards. Test first with a small value (`HSTS=300`).
 
-LITH n'accepte que TLS 1.2 et TLS 1.3 : les navigateurs de plus de dix ans environ
-(Internet Explorer 10 et antérieurs, Android 4.x) ne pourront pas se connecter.
+LITH only accepts TLS 1.2 and TLS 1.3: browsers older than about ten years
+(Internet Explorer 10 and earlier, Android 4.x) will not be able to connect.
 
-### 8.8 Liste de contrôle avant de publier un site
+### 8.8 Checklist before publishing a site
 
-- [ ] HTTPS en place : `make TLS=1` + `TLS_PORT`, ou un proxy devant LITH (Caddy, nginx, Cloudflare...).
-- [ ] `TLS_REDIRECT=1`, puis `HSTS` une fois HTTPS validé ; clé privée lisible par LITH seulement.
-- [ ] `HIDE_DOTFILES=1` et aucun fichier secret dans `public/`.
-- [ ] Mots de passe `AUTH` / `STATUS_AUTH` longs et uniques, `lith.conf` protégé.
-- [ ] `RATE_LIMIT` réglé (dans LITH ou dans le proxy de devant).
-- [ ] Une `CSP` testée.
-- [ ] LITH lancé avec un utilisateur sans privilèges (pas `root`).
-- [ ] `lith check` sans erreur.
+- [ ] HTTPS in place: `make TLS=1` + `TLS_PORT`, or a proxy in front of LITH (Caddy, nginx, Cloudflare...).
+- [ ] `TLS_REDIRECT=1`, then `HSTS` once HTTPS is validated; private key readable by LITH only.
+- [ ] `HIDE_DOTFILES=1` and no secret file in `public/`.
+- [ ] Long and unique `AUTH` / `STATUS_AUTH` passwords, `lith.conf` protected.
+- [ ] `RATE_LIMIT` configured (in LITH or in the proxy in front).
+- [ ] A tested `CSP`.
+- [ ] LITH run by an unprivileged user (not `root`).
+- [ ] `lith check` without errors.
 
 ---
 
-## Chapitre 9 — Le mode développement (rechargement automatique)
+## Chapter 9 — Development mode (live reload)
 
-### 9.1 L'utiliser
+### 9.1 Using it
 
 ```bash
 lith start --dev
 ```
 
-Ouvrez votre site, modifiez un fichier dans `public/` et enregistrez : le
-navigateur se recharge **tout seul** en environ une seconde. Fini les F5 !
+Open your site, edit a file in `public/` and save: the browser reloads **by
+itself** in about one second. No more F5!
 
-`--dev` active `LIVE_RELOAD=1` et `CACHE_CONTROL=no-store` (le navigateur ne
-garde rien en cache, vous voyez toujours la dernière version). Vous pouvez
-aussi mettre `LIVE_RELOAD=1` dans `lith.conf`.
+`--dev` enables `LIVE_RELOAD=1` and `CACHE_CONTROL=no-store` (the browser keeps
+nothing in cache, you always see the latest version). You can also put
+`LIVE_RELOAD=1` in `lith.conf`.
 
-### 9.2 Comment ça marche
+### 9.2 How it works
 
-1. Quand LITH envoie une page HTML, il ajoute juste avant `</body>` un petit
-   script (≈ 300 caractères).
-2. Ce script ouvre un **WebSocket** vers `/__lith/livereload` : une connexion
-   qui reste ouverte et permet au serveur d'envoyer un message au navigateur
-   à tout moment.
-3. De son côté, LITH examine le dossier `public/` chaque seconde. Dès qu'un
-   fichier est ajouté, modifié ou supprimé, il envoie le message `reload` à
-   tous les navigateurs connectés.
-4. Le script reçoit `reload` et recharge la page. Si LITH redémarre, le script
-   se reconnecte tout seul.
+1. When LITH sends an HTML page, it adds a small script (≈ 300 characters)
+   right before `</body>`.
+2. This script opens a **WebSocket** to `/__lith/livereload`: a connection
+   that stays open and lets the server send a message to the browser at any time.
+3. On its side, LITH scans the `public/` folder every second. As soon as a
+   file is added, modified or deleted, it sends the `reload` message to every
+   connected browser.
+4. The script receives `reload` and reloads the page. If LITH restarts, the
+   script reconnects by itself.
 
-Le fichier HTML sur votre disque n'est jamais modifié : le script n'est ajouté
-que dans la réponse envoyée.
+The HTML file on your disk is never modified: the script is only added to the
+response that is sent.
 
-### 9.3 Limites
+### 9.3 Limits
 
-- Réservé au développement : ne l'activez pas en production.
-- Jusqu'à 64 onglets connectés en même temps.
-- Les dossiers cachés et `node_modules/` ne sont pas surveillés.
-- En mode dev, les pages HTML ne sont ni compressées ni mises en cache (les
-  autres fichiers, si).
+- For development only: do not enable it in production.
+- Up to 64 tabs connected at the same time.
+- Hidden folders and `node_modules/` are not watched.
+- In dev mode, HTML pages are neither compressed nor cached (other files are).
 
 ---
 
-## Chapitre 10 — Proxy inverse et répartition de charge
+## Chapter 10 — Reverse proxy and load balancing
 
-### 10.1 Le principe
+### 10.1 The principle
 
-Votre site a une partie statique (HTML, CSS) et une API écrite en Node.js,
-Python, Go, PHP... qui tourne sur le port 3000. Plutôt que d'exposer deux
-adresses, LITH sert les fichiers et **transmet** à l'application tout ce qui
-commence par `/api` :
+Your site has a static part (HTML, CSS) and an API written in Node.js, Python,
+Go, PHP... running on port 3000. Rather than exposing two addresses, LITH
+serves the files and **forwards** to the application everything that starts
+with `/api`:
 
 ```text
-                           ┌───────────────────────────┐
-  navigateur ──▶ LITH :8090 │ /api/...  ──▶ app :3000   │
-                           │ le reste  ──▶ public/     │
-                           └───────────────────────────┘
+                            ┌───────────────────────────┐
+  browser ──▶ LITH :8090    │ /api/...  ──▶ app :3000   │
+                            │ the rest  ──▶ public/     │
+                            └───────────────────────────┘
 ```
 
 ```ini
 PROXY=/api http://127.0.0.1:3000
 ```
 
-Le chemin est transmis **tel quel** : `/api/users?id=4` arrive à l'application
-sous la forme `/api/users?id=4`. Toutes les méthodes (`GET`, `POST`, `PUT`,
-`DELETE`...) et le corps des requêtes sont transmis.
+The path is forwarded **as is**: `/api/users?id=4` reaches the application as
+`/api/users?id=4`. Every method (`GET`, `POST`, `PUT`, `DELETE`...) and the
+request body are forwarded.
 
-### 10.2 Exemple complet avec Node.js
+### 10.2 Complete example with Node.js
 
-`app.js` :
+`app.js`:
 
 ```js
 const http = require('http');
 http.createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ message: 'Bonjour depuis Node', chemin: req.url }));
+  res.end(JSON.stringify({ message: 'Hello from Node', path: req.url }));
 }).listen(3000, '127.0.0.1');
 ```
 
-`lith.conf` :
+`lith.conf`:
 
 ```ini
 PORT=8090
@@ -1079,54 +1060,52 @@ PROXY=/api http://127.0.0.1:3000
 ```
 
 ```bash
-node app.js          # dans un premier terminal
-lith start           # dans un second
+node app.js          # in a first terminal
+lith start           # in a second one
 ```
 
-`http://localhost:8090/` affiche votre site, et
-`http://localhost:8090/api/test` répond
-`{"message":"Bonjour depuis Node","chemin":"/api/test"}`.
+`http://localhost:8090/` shows your site, and `http://localhost:8090/api/test`
+answers `{"message":"Hello from Node","path":"/api/test"}`.
 
-### 10.3 Plusieurs copies de l'application : la répartition de charge
+### 10.3 Several copies of the application: load balancing
 
-Pour tenir plus de trafic ou continuer à fonctionner si une copie tombe en
-panne, lancez plusieurs copies de l'application et listez-les :
+To handle more traffic or keep working if one copy fails, run several copies
+of the application and list them:
 
 ```ini
 PROXY=/api http://127.0.0.1:3000, http://127.0.0.1:3001, http://10.0.0.5:3000
 ```
 
-- Les requêtes sont distribuées **à tour de rôle** (*round-robin*).
-- Si une copie ne répond pas, LITH la marque **hors service**, passe à la
-  suivante, et le note dans le journal :
+- Requests are distributed **in turn** (*round-robin*).
+- If a copy does not answer, LITH marks it **out of service**, moves on to the
+  next one, and writes it in the log ("backend out of service"):
   `WARN  Proxy : backend 127.0.0.1:3001 hors service`.
-- Toutes les `HEALTH_CHECK_INTERVAL` secondes, LITH reteste les copies ; dès
-  qu'une copie répond de nouveau, elle est réintégrée.
-- Si aucune copie ne répond : `502 Bad Gateway`. Si une copie met plus de
-  `PROXY_TIMEOUT` secondes à répondre : `504 Gateway Timeout`.
+- Every `HEALTH_CHECK_INTERVAL` seconds, LITH tests the copies again; as soon
+  as a copy answers again, it is brought back.
+- If no copy answers: `502 Bad Gateway`. If a copy takes more than
+  `PROXY_TIMEOUT` seconds to answer: `504 Gateway Timeout`.
 
-L'état de chaque backend est visible dans `/__lith/status`.
+The state of each backend is visible in `/__lith/status`.
 
-### 10.4 Ce que reçoit l'application
+### 10.4 What the application receives
 
-LITH ajoute des en-têtes standard pour que l'application connaisse le vrai
-visiteur :
+LITH adds standard headers so that the application knows the real visitor:
 
-| En-tête | Contenu |
-|---------|---------|
-| `X-Forwarded-For` | Adresse IP du visiteur (ajoutée à la liste existante) |
-| `X-Real-IP` | Adresse IP du visiteur |
-| `X-Forwarded-Host` | Le `Host` demandé par le visiteur |
-| `X-Forwarded-Proto` | `https` si le visiteur est arrivé sur `TLS_PORT`, sinon `http` |
+| Header | Content |
+|--------|---------|
+| `X-Forwarded-For` | Visitor's IP address (appended to the existing list) |
+| `X-Real-IP` | Visitor's IP address |
+| `X-Forwarded-Host` | The `Host` requested by the visitor |
+| `X-Forwarded-Proto` | `https` if the visitor came in on `TLS_PORT`, otherwise `http` |
 
-L'en-tête `Host` d'origine est conservé. Les en-têtes `X-Forwarded-*` et
-`X-Real-IP` envoyés par le visiteur lui-même sont remplacés (sauf
-`X-Forwarded-For`, complété) : l'application peut donc se fier à
-`X-Forwarded-Proto` pour savoir si la connexion était chiffrée (cookies
-`Secure`, liens absolus...). La liaison LITH → backend reste en HTTP clair :
-gardez vos backends sur `127.0.0.1` ou sur un réseau privé.
+The original `Host` header is kept. The `X-Forwarded-*` and `X-Real-IP` headers
+sent by the visitor themselves are replaced (except `X-Forwarded-For`, which is
+appended to): the application can therefore trust `X-Forwarded-Proto` to know
+whether the connection was encrypted (`Secure` cookies, absolute links...). The
+LITH → backend link stays in plain HTTP: keep your backends on `127.0.0.1` or
+on a private network.
 
-### 10.5 Plusieurs routes
+### 10.5 Several routes
 
 ```ini
 PROXY=/api http://127.0.0.1:3000
@@ -1134,48 +1113,47 @@ PROXY=/auth http://127.0.0.1:4000
 PROXY=/api/v2 http://127.0.0.1:5000
 ```
 
-La route la plus précise gagne : `/api/v2/users` va au port 5000, `/api/users`
-au port 3000. Une route `PROXY=/ http://...` transmet **tout** (LITH devient
-alors un pur proxy devant votre application).
+The most specific route wins: `/api/v2/users` goes to port 5000, `/api/users`
+to port 3000. A `PROXY=/ http://...` route forwards **everything** (LITH then
+becomes a pure proxy in front of your application).
 
-### 10.6 Limites de la 1.0.0
+### 10.6 Limits of 1.0.0
 
-- Backends en `http://` uniquement (pas `https://`).
-- Une nouvelle connexion vers le backend par requête, et la connexion avec le
-  visiteur est fermée après une réponse proxifiée (simple et robuste, un peu
-  moins rapide que la réutilisation).
-- Les WebSockets ne sont pas transmis aux backends (`501`).
-- Les corps de requête envoyés « par morceaux » (`Transfer-Encoding: chunked`)
-  sont refusés (`411`) : le client doit indiquer `Content-Length` (c'est le cas
-  des formulaires et de la plupart des clients HTTP).
+- `http://` backends only (no `https://`).
+- A new connection to the backend for each request, and the connection with
+  the visitor is closed after a proxied response (simple and robust, slightly
+  slower than reusing connections).
+- WebSockets are not forwarded to backends (`501`).
+- Request bodies sent "in chunks" (`Transfer-Encoding: chunked`) are rejected
+  (`411`): the client must send `Content-Length` (forms and most HTTP clients do).
 
 ---
 
-## Chapitre 11 — Supervision et journaux
+## Chapter 11 — Monitoring and logs
 
-### 11.1 Le journal du terminal
+### 11.1 The terminal log
 
-Deux sortes de lignes :
+Two kinds of lines:
 
 ```text
 [2026-10-18 10:00:00] INFO  LITH 1.0.0 prêt : http://localhost:8090 ...
 [2026-10-18 10:00:05] 127.0.0.1 "GET /index.html HTTP/1.1" 200 772 0ms "Mozilla/5.0 ..."
 ```
 
-- Les **messages** du serveur, avec leur niveau (`DEBUG`, `INFO`, `WARN`, `ERROR`).
-- Le **journal d'accès** : une ligne par requête :
-  `IP "MÉTHODE CHEMIN VERSION" CODE OCTETS DURÉE "NAVIGATEUR"`.
+- Server **messages**, with their level (`DEBUG`, `INFO`, `WARN`, `ERROR`).
+- The **access log**: one line per request:
+  `IP "METHOD PATH VERSION" CODE BYTES DURATION "BROWSER"`.
 
-Réglages : `LOG_LEVEL=debug` pour tout voir (utile pour un diagnostic),
-`LOG_FILE=lith.log` pour écrire dans un fichier, `ACCESS_LOG=0` ou `-q` pour
-masquer le journal d'accès.
+Settings: `LOG_LEVEL=debug` to see everything (useful for troubleshooting),
+`LOG_FILE=lith.log` to write to a file, `ACCESS_LOG=0` or `-q` to hide the
+access log.
 
-### 11.2 `/__lith/health` : « es-tu vivant ? »
+### 11.2 `/__lith/health`: "are you alive?"
 
-Répond `200 OK` avec le texte `OK`. Accessible à tous. Utilisé par Docker,
-Kubernetes, les répartiteurs de charge et la commande `lith health`.
+Answers `200 OK` with the text `OK`. Open to everyone. Used by Docker,
+Kubernetes, load balancers and the `lith health` command.
 
-### 11.3 `/__lith/status` : le tableau de bord JSON
+### 11.3 `/__lith/status`: the JSON dashboard
 
 ```json
 {
@@ -1198,15 +1176,14 @@ Kubernetes, les répartiteurs de charge et la commande `lith health`.
 }
 ```
 
-**Qui peut le voir ?** Par défaut, uniquement la machine elle-même
-(`127.0.0.1`), et jamais une requête relayée par un proxy. Pour y accéder à
-distance, définissez `STATUS_AUTH=utilisateur:motdepasse`. Pour le désactiver
-complètement : `STATUS=0`.
+**Who can see it?** By default, only the machine itself (`127.0.0.1`), and
+never a request relayed by a proxy. To access it remotely, set
+`STATUS_AUTH=user:password`. To disable it completely: `STATUS=0`.
 
-### 11.4 `/__lith/metrics` : pour Prometheus et Grafana
+### 11.4 `/__lith/metrics`: for Prometheus and Grafana
 
-Les mêmes statistiques au format texte de **Prometheus**, l'outil de
-supervision le plus répandu (souvent couplé à **Grafana** pour les graphiques) :
+The same statistics in the text format of **Prometheus**, the most widely used
+monitoring tool (often paired with **Grafana** for charts):
 
 ```text
 lith_info{version="1.0.0"} 1
@@ -1220,7 +1197,7 @@ lith_backend_up{route="/api",backend="127.0.0.1:3000"} 1
 ...
 ```
 
-Configuration de Prometheus (`prometheus.yml`) :
+Prometheus configuration (`prometheus.yml`):
 
 ```yaml
 scrape_configs:
@@ -1228,58 +1205,60 @@ scrape_configs:
     metrics_path: /__lith/metrics
     static_configs:
       - targets: ['127.0.0.1:8090']
-    # si STATUS_AUTH est défini :
-    # basic_auth: { username: admin, password: motdepasse }
+    # if STATUS_AUTH is set:
+    # basic_auth: { username: admin, password: password }
 ```
 
 ---
 
-## Chapitre 12 — Mettre en production
+## Chapter 12 — Going to production
 
-### 12.1 Choisir son installation
+### 12.1 Choosing your setup
 
-| Situation | Solution conseillée |
-|-----------|---------------------|
-| Un serveur Linux (VPS, Raspberry Pi) | **systemd** (12.3) + HTTPS intégré (`make TLS=1`) ou **Caddy** (12.4) |
-| Une plateforme à conteneurs (Docker, Kubernetes, Cloud Run...) | **Docker** (12.5) |
-| Test rapide sur un serveur Linux | `lith start -d` / `lith stop` (12.2) |
-| Windows | Planificateur de tâches (12.6) |
+| Situation | Recommended solution |
+|-----------|----------------------|
+| A Linux server (VPS, Raspberry Pi) | **systemd** (12.3) + built-in HTTPS (`make TLS=1`) or **Caddy** (12.4) |
+| A container platform (Docker, Kubernetes, Cloud Run...) | **Docker** (12.5) |
+| Quick test on a Linux server | `lith start -d` / `lith stop` (12.2) |
+| Windows | Task Scheduler (12.6) |
 
-### 12.2 Le mode démon (Linux/macOS)
+### 12.2 Daemon mode (Linux/macOS)
 
 ```bash
 lith start -d
 ```
 
-LITH se détache du terminal (vous pouvez le fermer) et continue de tourner :
+LITH detaches from the terminal (you can close it) and keeps running. It
+prints where its log and PID file are and how to stop it:
 
 ```text
 LITH démarre en arrière-plan sur le port 8090.
-  Journal : /home/moi/mon-site/lith.log
-  PID     : /home/moi/mon-site/lith.pid
+  Journal : /home/me/my-site/lith.log
+  PID     : /home/me/my-site/lith.pid
   Arrêt   : lith stop
 ```
 
-`lith stop` (lancé depuis le même dossier, ou avec `-c` vers le même fichier de
-configuration) lit le fichier PID, demande l'arrêt propre et attend sa fin.
+`lith stop` (run from the same folder, or with `-c` pointing to the same
+configuration file) reads the PID file, requests a graceful shutdown and waits
+for it to finish.
 
-### 12.3 Avec systemd (recommandé sous Linux)
+### 12.3 With systemd (recommended on Linux)
 
-systemd démarre LITH avec la machine et le relance en cas de problème.
-Créez `/etc/systemd/system/lith.service` :
+systemd starts LITH with the machine and restarts it if something goes wrong.
+Create `/etc/systemd/system/lith.service`:
 
 ```ini
 [Unit]
-Description=LITH - serveur web
+Description=LITH - web server
 After=network.target
 
 [Service]
-WorkingDirectory=/srv/mon-site
+WorkingDirectory=/srv/my-site
 ExecStart=/usr/local/bin/lith start
 Restart=on-failure
 User=www-data
 Group=www-data
-# Pour écouter sur le port 80 sans être root :
+# To listen on port 80 without being root:
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 
@@ -1287,58 +1266,58 @@ NoNewPrivileges=true
 WantedBy=multi-user.target
 ```
 
-> Avec systemd, **n'utilisez pas `-d`** : systemd gère lui-même l'arrière-plan.
+> With systemd, **do not use `-d`**: systemd manages the background itself.
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now lith     # démarrer maintenant et à chaque démarrage
-systemctl status lith                # état
-journalctl -u lith -f                # journal en direct
-sudo systemctl restart lith          # après une modification de lith.conf
+sudo systemctl enable --now lith     # start now and at every boot
+systemctl status lith                # status
+journalctl -u lith -f                # live log
+sudo systemctl restart lith          # after changing lith.conf
 ```
 
-### 12.4 Ajouter HTTPS
+### 12.4 Adding HTTPS
 
-Prérequis communs : un nom de domaine qui pointe vers votre serveur, et les
-ports 80 et 443 ouverts. Deux méthodes ; la première garde un seul programme,
-la seconde automatise complètement les certificats.
+Common prerequisites: a domain name pointing to your server, and ports 80 and
+443 open. Two methods; the first keeps a single program, the second fully
+automates certificates.
 
-#### Méthode A : HTTPS intégré à LITH (`make TLS=1`) + Let's Encrypt
+#### Method A: HTTPS built into LITH (`make TLS=1`) + Let's Encrypt
 
-1. Compilez et installez LITH avec HTTPS (chapitre 2.3) :
+1. Build and install LITH with HTTPS (chapter 2.3):
 
    ```bash
    make TLS=1 && sudo install -m 755 bin/lith /usr/local/bin/lith
    ```
 
-2. Démarrez d'abord LITH **en HTTP seul** sur le port 80 (service systemd du
-   12.3, avec `PORT=80`) : il faut un site joignable pour obtenir le premier
-   certificat.
+2. First start LITH **in plain HTTP only** on port 80 (systemd service from
+   12.3, with `PORT=80`): a reachable site is needed to obtain the first
+   certificate.
 
-3. Obtenez le certificat avec [certbot](https://certbot.eff.org) en mode
-   *webroot* : certbot dépose un fichier dans `public/.well-known/acme-challenge/`,
-   que LITH sert (ce dossier n'est jamais caché, ni redirigé vers HTTPS).
+3. Get the certificate with [certbot](https://certbot.eff.org) in *webroot*
+   mode: certbot drops a file into `public/.well-known/acme-challenge/`, which
+   LITH serves (this folder is never hidden, nor redirected to HTTPS).
 
    ```bash
-   sudo certbot certonly --webroot -w /srv/mon-site/public -d monsite.fr
+   sudo certbot certonly --webroot -w /srv/my-site/public -d mysite.com
    ```
 
-4. Les fichiers de `/etc/letsencrypt/live/` ne sont lisibles que par `root`.
-   Copiez-les pour l'utilisateur de LITH, à chaque renouvellement, avec un
-   petit script `/etc/letsencrypt/renewal-hooks/deploy/lith.sh` (rendez-le
-   exécutable avec `chmod +x`) :
+4. The files in `/etc/letsencrypt/live/` are readable by `root` only. Copy
+   them for the LITH user, on every renewal, with a small script
+   `/etc/letsencrypt/renewal-hooks/deploy/lith.sh` (make it executable with
+   `chmod +x`):
 
    ```bash
    #!/bin/sh
    install -d -o www-data -m 700 /etc/lith
    install -o www-data -m 600 "$RENEWED_LINEAGE/fullchain.pem" "$RENEWED_LINEAGE/privkey.pem" /etc/lith/
-   systemctl restart lith      # LITH relit le certificat au démarrage
+   systemctl restart lith      # LITH reads the certificate again at startup
    ```
 
-   Lancez-le une première fois à la main :
-   `sudo RENEWED_LINEAGE=/etc/letsencrypt/live/monsite.fr sh /etc/letsencrypt/renewal-hooks/deploy/lith.sh`.
+   Run it once by hand:
+   `sudo RENEWED_LINEAGE=/etc/letsencrypt/live/mysite.com sh /etc/letsencrypt/renewal-hooks/deploy/lith.sh`.
 
-5. Activez HTTPS dans `lith.conf`, vérifiez, redémarrez :
+5. Enable HTTPS in `lith.conf`, check, restart:
 
    ```ini
    PORT=80
@@ -1346,80 +1325,80 @@ la seconde automatise complètement les certificats.
    TLS_CERT=/etc/lith/fullchain.pem
    TLS_KEY=/etc/lith/privkey.pem
    TLS_REDIRECT=1
-   HSTS=300            # passez à 31536000 quand tout fonctionne
+   HSTS=300            # switch to 31536000 once everything works
    ```
 
    ```bash
    lith check && sudo systemctl restart lith
    ```
 
-Votre site répond en `https://monsite.fr` ; `http://monsite.fr` y redirige.
-certbot renouvelle le certificat automatiquement et le script ci-dessus
-redémarre LITH (quelques millisecondes d'interruption). La ligne
-`AmbientCapabilities=CAP_NET_BIND_SERVICE` du 12.3 autorise les ports 80 et 443
-sans `root`.
+Your site answers at `https://mysite.com`; `http://mysite.com` redirects to it.
+certbot renews the certificate automatically and the script above restarts
+LITH (a few milliseconds of interruption). The
+`AmbientCapabilities=CAP_NET_BIND_SERVICE` line from 12.3 allows ports 80 and
+443 without `root`.
 
-#### Méthode B : Caddy devant LITH
+#### Method B: Caddy in front of LITH
 
-[Caddy](https://caddyserver.com) obtient et renouvelle automatiquement des
-certificats HTTPS gratuits (Let's Encrypt), sans aucun script. LITH peut alors
-rester compilé sans TLS.
+[Caddy](https://caddyserver.com) automatically obtains and renews free HTTPS
+certificates (Let's Encrypt), without any script. LITH can then stay built
+without TLS.
 
-1. Configurez LITH pour n'écouter qu'en local :
+1. Configure LITH to listen locally only:
 
    ```ini
    HOST=127.0.0.1
    PORT=8090
    ```
 
-2. Installez Caddy, puis écrivez `/etc/caddy/Caddyfile` :
+2. Install Caddy, then write `/etc/caddy/Caddyfile`:
 
    ```text
-   monsite.fr {
+   mysite.com {
        reverse_proxy 127.0.0.1:8090
    }
    ```
 
-3. `sudo systemctl reload caddy`. Votre site est disponible en
-   `https://monsite.fr`, avec le cadenas.
+3. `sudo systemctl reload caddy`. Your site is available at
+   `https://mysite.com`, with the padlock.
 
-Avec **nginx**, l'équivalent est un bloc `location / { proxy_pass http://127.0.0.1:8090; }`
-dans un serveur configuré avec un certificat (par exemple via `certbot`).
+With **nginx**, the equivalent is a `location / { proxy_pass http://127.0.0.1:8090; }`
+block in a server configured with a certificate (for example through `certbot`).
 
-> **Astuce :** Derrière Caddy ou nginx, toutes les requêtes arrivent à LITH depuis
-> `127.0.0.1` : réglez la limitation de débit dans le proxy de devant, et
-> utilisez `STATUS_AUTH` si vous voulez consulter `/__lith/status` à distance
-> (LITH refuse automatiquement les requêtes relayées sans mot de passe).
+> **Tip:** Behind Caddy or nginx, every request reaches LITH from `127.0.0.1`:
+> configure rate limiting in the proxy in front, and use `STATUS_AUTH` if you
+> want to view `/__lith/status` remotely (LITH automatically refuses relayed
+> requests without a password).
 
-### 12.5 Déployer avec Docker
+### 12.5 Deploying with Docker
 
-Le `Dockerfile` fourni compile LITH en exécutable statique et produit une image
-**`scratch`** (vide) qui ne contient que LITH et le site : environ **330 Ko**,
-sans shell ni système d'exploitation à mettre à jour.
+The provided `Dockerfile` builds LITH as a static executable and produces a
+**`scratch`** (empty) image that only contains LITH and the site: about
+**330 KB**, with no shell or operating system to update.
 
 ```bash
 docker build -t lith .
 
-# Servir le site d'exemple
+# Serve the sample site
 docker run -d -p 8090:8090 --name lith lith
 
-# Servir votre propre site (monté en lecture seule)
+# Serve your own site (mounted read-only)
 docker run -d -p 8090:8090 -v "$PWD/public:/srv/public:ro" lith
 
-# Avec votre propre configuration
+# With your own configuration
 docker run -d -p 8090:8090 -v "$PWD/lith.conf:/lith.conf:ro" -v "$PWD/public:/srv/public:ro" lith
 ```
 
-Dans le conteneur : la configuration est `/lith.conf`, le site `/srv/public`
-(voir `docker/lith.conf`). LITH y tourne sans privilèges (utilisateur 65534),
-s'arrête proprement avec `docker stop`, et une sonde **HEALTHCHECK** (`lith health`)
-indique son état dans `docker ps`.
+Inside the container: the configuration is `/lith.conf`, the site
+`/srv/public` (see `docker/lith.conf`). LITH runs there without privileges
+(user 65534), stops gracefully with `docker stop`, and a **HEALTHCHECK** probe
+(`lith health`) shows its state in `docker ps`.
 
-L'image est compilée **sans HTTPS** pour rester minuscule : sur une plateforme à
-conteneurs, le chiffrement est en général assuré par l'*ingress* ou le
-répartiteur de charge devant le conteneur.
+The image is built **without HTTPS** to stay tiny: on a container platform,
+encryption is usually handled by the *ingress* or the load balancer in front
+of the container.
 
-**docker-compose.yml** :
+**docker-compose.yml**:
 
 ```yaml
 services:
@@ -1431,7 +1410,7 @@ services:
     restart: unless-stopped
 ```
 
-**Kubernetes** : utilisez `/__lith/health` pour les sondes :
+**Kubernetes**: use `/__lith/health` for probes:
 
 ```yaml
 livenessProbe:
@@ -1440,468 +1419,460 @@ readinessProbe:
   httpGet: { path: /__lith/health, port: 8090 }
 ```
 
-### 12.6 Sous Windows
+### 12.6 On Windows
 
-Le mode démon n'existe pas sous Windows. Pour que LITH démarre avec la machine :
+Daemon mode does not exist on Windows. To start LITH with the machine:
 
-1. Ouvrez le **Planificateur de tâches** → *Créer une tâche*.
-2. *Général* : cochez « Exécuter même si l'utilisateur n'est pas connecté ».
-3. *Déclencheurs* : « Au démarrage ».
-4. *Actions* : programme `C:\lith\bin\lith.exe`, arguments `start`,
-   « Commencer dans » : le dossier de votre site (celui qui contient `lith.conf`).
+1. Open the **Task Scheduler** → *Create Task*.
+2. *General*: check "Run whether user is logged on or not".
+3. *Triggers*: "At startup".
+4. *Actions*: program `C:\lith\bin\lith.exe`, arguments `start`,
+   "Start in": your site's folder (the one containing `lith.conf`).
 
-Pour l'arrêter : `taskkill /IM lith.exe`, ou depuis le Planificateur.
+To stop it: `taskkill /IM lith.exe`, or from the Task Scheduler.
 
-### 12.7 Mettre à jour LITH
+### 12.7 Updating LITH
 
-1. Téléchargez (ou compilez) la nouvelle version.
-2. Lisez le [CHANGELOG](CHANGELOG.md).
-3. `lith check` avec votre configuration actuelle.
-4. Remplacez l'exécutable et redémarrez (`systemctl restart lith`,
-   `lith stop && lith start -d`, ou nouvelle image Docker).
+1. Download (or build) the new version.
+2. Read the [CHANGELOG](CHANGELOG.md).
+3. Run `lith check` with your current configuration.
+4. Replace the executable and restart (`systemctl restart lith`,
+   `lith stop && lith start -d`, or a new Docker image).
 
 ---
 
-## Chapitre 13 — Comment LITH fonctionne à l'intérieur
+## Chapter 13 — How LITH works inside
 
-Ce chapitre s'adresse aux curieux et aux contributeurs. Il n'est pas nécessaire
-pour utiliser LITH.
+This chapter is for the curious and for contributors. It is not needed to use LITH.
 
-### 13.1 Vue d'ensemble
+### 13.1 Overview
 
 ```text
-                    ┌──────────────────────── processus lith ────────────────────────┐
+                    ┌────────────────────────── lith process ─────────────────────────┐
                     │                                                                 │
-  connexions TCP ──▶│ thread principal : accept() sur PORT (et TLS_PORT si HTTPS)      │
+  TCP connections ─▶│ main thread: accept() on PORT (and TLS_PORT if HTTPS)           │
                     │        │                                                        │
                     │        ▼                                                        │
-                    │  file d'attente FIFO (bornée par MAX_PENDING)                    │
+                    │  FIFO queue (bounded by MAX_PENDING)                            │
                     │        │                                                        │
                     │        ▼                                                        │
-                    │  pool de N threads de travail ──▶ lecture requête ──▶ routeur   │
+                    │  pool of N worker threads ──▶ read request ──▶ router           │
                     │                                                    │            │
                     │        ┌────────────┬──────────────┬───────────────┼─────────┐  │
                     │        ▼            ▼              ▼               ▼         ▼  │
-                    │   /__lith/*     AUTH (401)     PROXY          fichiers    erreurs│
-                    │   statut,       Basic          backends       statiques          │
-                    │   métriques                    round-robin    cache, gzip        │
+                    │   /__lith/*     AUTH (401)     PROXY          static      errors│
+                    │   status,       Basic          backends       files             │
+                    │   metrics                      round-robin    cache, gzip       │
                     │                                                                 │
-                    │ threads annexes : health checks · surveillance live reload ·     │
-                    │                   un thread léger par client WebSocket          │
+                    │ side threads: health checks · live reload watcher ·             │
+                    │               one light thread per WebSocket client             │
                     └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 13.2 Le trajet d'une requête
+### 13.2 The journey of a request
 
-1. **Accept** : le thread principal attend les connexions (`select()` avec un
-   délai de 500 ms pour pouvoir s'arrêter proprement), récupère l'adresse IP du
-   client et place la connexion dans la file d'attente.
-2. **Prise en charge** : un thread de travail libre la retire de la file. Si
-   elle arrive sur `TLS_PORT`, une session TLS est créée ; la poignée de main se
-   déroule pendant la lecture de la première requête, sous les mêmes délais.
-3. **Lecture des en-têtes** : le thread lit jusqu'à trouver la ligne vide
-   (`\r\n\r\n`), dans un tampon de 16 Ko maximum, en surveillant les délais.
-4. **Analyse** (`http_parser.c`) : ligne de requête, en-têtes, décodage du
-   chemin, contrôles de cohérence. Toute anomalie donne une erreur précise (400,
-   414, 431, 505...).
-5. **Corps** : si `Content-Length` est présent (et ≤ `MAX_BODY_SIZE`), le corps
-   est lu entièrement en mémoire.
-6. **Routage** (`router.c`), dans cet ordre : limite de débit → méthode connue
-   → chemin sûr → routes internes `/__lith/` → `AUTH` → `PROXY` → `OPTIONS` →
-   `GET`/`HEAD` sur les fichiers.
-7. **Réponse** (`response.c`) : construction des en-têtes communs (date,
-   serveur, sécurité, CORS, keep-alive) puis envoi du corps.
-8. **Journal** : une ligne d'accès, mise à jour des compteurs.
-9. **Suite** : si la connexion reste ouverte (keep-alive), le thread traite la
-   requête suivante (éventuellement déjà reçue : *pipelining*), sinon il ferme
-   et retourne à la file.
+1. **Accept**: the main thread waits for connections (`select()` with a 500 ms
+   timeout so it can stop cleanly), gets the client's IP address and puts the
+   connection in the queue.
+2. **Pick-up**: a free worker thread takes it from the queue. If it came in on
+   `TLS_PORT`, a TLS session is created; the handshake takes place while the
+   first request is read, under the same timeouts.
+3. **Reading headers**: the thread reads until it finds the empty line
+   (`\r\n\r\n`), in a buffer of at most 16 KB, while watching the timeouts.
+4. **Parsing** (`http_parser.c`): request line, headers, path decoding,
+   consistency checks. Any anomaly gives a precise error (400, 414, 431, 505...).
+5. **Body**: if `Content-Length` is present (and ≤ `MAX_BODY_SIZE`), the body
+   is read entirely into memory.
+6. **Routing** (`router.c`), in this order: rate limit → known method → safe
+   path → internal `/__lith/` routes → `AUTH` → `PROXY` → `OPTIONS` →
+   `GET`/`HEAD` on files.
+7. **Response** (`response.c`): building the common headers (date, server,
+   security, CORS, keep-alive), then sending the body.
+8. **Log**: one access line, counters updated.
+9. **Next**: if the connection stays open (keep-alive), the thread handles the
+   next request (possibly already received: *pipelining*), otherwise it closes
+   it and goes back to the queue.
 
-### 13.3 Les modules
+### 13.3 Modules
 
-| Module | Responsabilité |
+| Module | Responsibility |
 |--------|----------------|
-| `platform.c` | Seul fichier qui connaît les différences Windows/POSIX : sockets, fichiers en UTF-8, temps, mémoire |
-| `server.c` | Écoute (HTTP et HTTPS), pool de threads, boucle de connexion, arrêt propre |
-| `tls.c` | E/S d'une connexion (`LithStream`) : socket directe, ou passage par le module TLS si la connexion est chiffrée |
-| `tls/` (Rust) | Module HTTPS optionnel (`make TLS=1`) : rustls derrière une petite API C (`tls/lith_tls.h`) |
-| `http_parser.c` | Analyse HTTP, types MIME, dates HTTP, plages `Range`, sécurité des chemins |
-| `router.c` | Aiguillage et routes internes |
-| `static.c` | Fichiers : 304, Range, cache, gzip, envoi par blocs / `sendfile`, liste de dossiers, SPA |
-| `response.c` | En-têtes de réponse et pages d'erreur |
-| `cache.c` | Table de hachage + LRU + compteur de références |
-| `crypto.c` | SHA-1, Base64, CRC-32, compresseur deflate/gzip |
-| `security.c` | Authentification Basic, seau à jetons par IP |
-| `proxy.c` | Proxy inverse, round-robin, health checks |
-| `websocket.c` | Protocole WebSocket et live reload |
-| `metrics.c` | Compteurs atomiques et documents JSON / Prometheus |
-| `config.c`, `logger.c`, `daemon.c`, `strbuf.c`, `main.c` | Configuration, journaux, démon, chaînes, ligne de commande |
+| `platform.c` | The only file that knows the Windows/POSIX differences: sockets, UTF-8 files, time, memory |
+| `server.c` | Listening (HTTP and HTTPS), thread pool, connection loop, graceful shutdown |
+| `tls.c` | Connection I/O (`LithStream`): direct socket, or through the TLS module when the connection is encrypted |
+| `tls/` (Rust) | Optional HTTPS module (`make TLS=1`): rustls behind a small C API (`tls/lith_tls.h`) |
+| `http_parser.c` | HTTP parsing, MIME types, HTTP dates, `Range` ranges, path safety |
+| `router.c` | Routing and internal routes |
+| `static.c` | Files: 304, Range, cache, gzip, chunked sending / `sendfile`, directory listing, SPA |
+| `response.c` | Response headers and error pages |
+| `cache.c` | Hash table + LRU + reference counting |
+| `crypto.c` | SHA-1, Base64, CRC-32, deflate/gzip compressor |
+| `security.c` | Basic authentication, per-IP token bucket |
+| `proxy.c` | Reverse proxy, round-robin, health checks |
+| `websocket.c` | WebSocket protocol and live reload |
+| `metrics.c` | Atomic counters and JSON / Prometheus documents |
+| `config.c`, `logger.c`, `daemon.c`, `strbuf.c`, `main.c` | Configuration, logs, daemon, strings, command line |
 
-### 13.4 Quelques choix de conception
+### 13.4 Some design choices
 
-- **Un pool de threads plutôt qu'une boucle d'événements** (`epoll`/`kqueue`) :
-  le code reste simple, lisible et identique sur les trois systèmes. Le nombre
-  de threads est élevé par défaut (les threads inactifs ne coûtent presque rien)
-  et LITH libère les connexions inactives quand des clients attendent.
-- **Un module TLS qui ne touche jamais au réseau** : le code Rust reçoit les
-  octets lus par LITH (`rtls_feed`), rend le texte clair (`rtls_read`), chiffre
-  les réponses (`rtls_write`) et donne les octets à envoyer
-  (`rtls_take_output`). Les sockets, délais, keep-alive et protections
-  anti-slowloris restent ceux du code C, identiques en HTTP et en HTTPS. En
-  HTTPS, `sendfile` (zéro copie) est remplacé par l'envoi par blocs, puisque
-  les données doivent être chiffrées.
-- **Un cache à compteur de références** : un thread qui envoie un fichier à un
-  client lent ne bloque jamais les autres, et un fichier peut être remplacé ou
-  évincé pendant qu'il est envoyé sans risque.
-- **Zéro dépendance** : SHA-1, Base64, CRC-32 et la compression gzip sont
-  implémentés dans LITH (≈ 400 lignes). Le compresseur utilise LZ77 avec des
-  codes de Huffman fixes : un peu moins efficace que zlib au niveau maximum,
-  mais très rapide, simple à vérifier, et le résultat est mis en cache.
-- **Des chemins UTF-8 partout** : sous Windows, LITH convertit les chemins vers
-  les API Unicode (`_wfopen`, `FindFirstFileW`) pour gérer les accents.
-- **Arrêt propre** : les signaux (Ctrl+C, `SIGTERM`) ne font que lever un
-  drapeau atomique ; les threads le voient et terminent leur travail en cours.
-- **Pas d'état partagé modifiable** hors des structures protégées (cache,
-  limitation de débit) et des compteurs atomiques : la configuration est en
-  lecture seule une fois le serveur démarré.
+- **A thread pool rather than an event loop** (`epoll`/`kqueue`): the code
+  stays simple, readable and identical on the three systems. The number of
+  threads is high by default (idle threads cost almost nothing) and LITH
+  releases idle connections when clients are waiting.
+- **A TLS module that never touches the network**: the Rust code receives the
+  bytes read by LITH (`rtls_feed`), returns the plain text (`rtls_read`),
+  encrypts responses (`rtls_write`) and hands over the bytes to send
+  (`rtls_take_output`). Sockets, timeouts, keep-alive and anti-slowloris
+  protections stay in the C code, identical for HTTP and HTTPS. Over HTTPS,
+  `sendfile` (zero copy) is replaced by chunked sending, since the data has to
+  be encrypted.
+- **A reference-counted cache**: a thread sending a file to a slow client
+  never blocks the others, and a file can be replaced or evicted while it is
+  being sent, safely.
+- **Zero dependencies**: SHA-1, Base64, CRC-32 and gzip compression are
+  implemented inside LITH (≈ 400 lines). The compressor uses LZ77 with fixed
+  Huffman codes: slightly less efficient than zlib at its maximum level, but
+  very fast, easy to verify, and the result is cached.
+- **UTF-8 paths everywhere**: on Windows, LITH converts paths to the Unicode
+  APIs (`_wfopen`, `FindFirstFileW`) to handle accented characters.
+- **Graceful shutdown**: signals (Ctrl+C, `SIGTERM`) only raise an atomic
+  flag; threads see it and finish their current work.
+- **No mutable shared state** outside protected structures (cache, rate
+  limiting) and atomic counters: the configuration is read-only once the
+  server has started.
 
-### 13.5 Limites connues de la 1.0.0
+### 13.5 Known limits of 1.0.0
 
-| Limite | Valeur |
-|--------|--------|
-| Taille des en-têtes d'une requête | 16 Ko, 64 en-têtes |
-| Longueur d'une URL | 2048 caractères |
-| Clients WebSocket (live reload) | 64 |
-| Routes `PROXY` / backends par route | 16 / 8 |
-| Règles `AUTH` | 16 |
-| Compression à la volée (fichiers hors cache) | fichiers ≤ 8 Mo |
-| Liste de dossier (`AUTO_INDEX`) | 10 000 entrées |
+| Limit | Value |
+|-------|-------|
+| Size of a request's headers | 16 KB, 64 headers |
+| Length of a URL | 2048 characters |
+| WebSocket clients (live reload) | 64 |
+| `PROXY` routes / backends per route | 16 / 8 |
+| `AUTH` rules | 16 |
+| On-the-fly compression (files outside the cache) | files ≤ 8 MB |
+| Directory listing (`AUTO_INDEX`) | 10,000 entries |
 
 ---
 
-## Chapitre 14 — Compiler, tester et contribuer
+## Chapter 14 — Building, testing and contributing
 
-### 14.1 Les commandes `make`
+### 14.1 `make` commands
 
-| Commande | Effet |
-|----------|-------|
-| `make` | Compile `bin/lith` |
-| `make test` | Compile et lance les tests unitaires |
-| `make integration` | Lance les tests d'intégration (bash + curl) |
-| `make DEBUG=1` | Compilation de débogage, avec AddressSanitizer et UBSan (hors Windows) |
-| `make STATIC=1` | Exécutable statique (aucune bibliothèque partagée requise) |
-| `make TLS=1` | Ajoute HTTPS (module Rust `tls/`, demande `cargo`). À répéter sur chaque commande : `make TLS=1 test`, `make TLS=1 integration` |
-| `make CFLAGS="-O3 -march=native"` | Options de compilation personnalisées |
-| `make install` / `make uninstall` | Installe / retire `lith` dans `$(PREFIX)/bin` (défaut `/usr/local`) |
-| `make clean` | Supprime `build/` et `bin/` |
-| `make distclean` | Supprime aussi la compilation Rust (`tls/target/`) |
+| Command | Effect |
+|---------|--------|
+| `make` | Builds `bin/lith` |
+| `make test` | Builds and runs the unit tests |
+| `make integration` | Runs the integration tests (bash + curl) |
+| `make DEBUG=1` | Debug build, with AddressSanitizer and UBSan (except on Windows) |
+| `make STATIC=1` | Static executable (no shared library required) |
+| `make TLS=1` | Adds HTTPS (Rust `tls/` module, requires `cargo`). Repeat it on every command: `make TLS=1 test`, `make TLS=1 integration` |
+| `make CFLAGS="-O3 -march=native"` | Custom compiler options |
+| `make install` / `make uninstall` | Installs / removes `lith` in `$(PREFIX)/bin` (default `/usr/local`) |
+| `make clean` | Removes `build/` and `bin/` |
+| `make distclean` | Also removes the Rust build (`tls/target/`) |
 
-### 14.2 Les tests
+### 14.2 Tests
 
-- **Tests unitaires** (`tests/unit_tests.c`) : analyse HTTP (requêtes valides
-  et malveillantes), sécurité des chemins, MIME, dates, plages, SHA-1, Base64,
-  CRC-32, WebSocket, configuration... Le compresseur gzip est vérifié par un
-  mini-décompresseur indépendant écrit dans le test.
-- **Tests d'intégration** (`tests/integration.sh`) : de vrais serveurs LITH
-  sont lancés, puis interrogés avec `curl` et des connexions TCP brutes :
-  fichiers, sécurité, 304, Range, gzip, limites, keep-alive, pipelining,
-  slowloris, CORS, limitation de débit, proxy avec panne de backend, WebSocket
-  et trame de rechargement, statistiques protégées, journal dans un fichier. Sous
-  Linux/macOS, s'y ajoutent l'arrêt par `SIGTERM`, le mode démon, l'absence de
-  fuite de descripteurs et un test de charge ApacheBench.
-- **Tests HTTPS** (dans `tests/integration.sh`) : avec un exécutable `make TLS=1`,
-  un certificat auto-signé jetable est généré avec `openssl` dans un dossier
-  temporaire (jamais dans le dépôt), puis sont vérifiés : certificat, ALPN,
-  TLS 1.2/1.3, HSTS, redirections `TLS_REDIRECT`, fichiers, Range, gzip, POST,
-  keep-alive, proxy, WebSocket `wss://`, refus du HTTP en clair et coupure des
-  poignées de main trop lentes. Avec l'exécutable standard, le script vérifie
-  que `TLS_PORT` est refusé avec un message clair.
+- **Unit tests** (`tests/unit_tests.c`): HTTP parsing (valid and malicious
+  requests), path safety, MIME, dates, ranges, SHA-1, Base64, CRC-32,
+  WebSocket, configuration... The gzip compressor is checked by an independent
+  mini-decompressor written in the test.
+- **Integration tests** (`tests/integration.sh`): real LITH servers are
+  started, then queried with `curl` and raw TCP connections: files, security,
+  304, Range, gzip, limits, keep-alive, pipelining, slowloris, CORS, rate
+  limiting, proxy with backend failure, WebSocket and reload frame, protected
+  statistics, log file. On Linux/macOS, they add `SIGTERM` shutdown, daemon
+  mode, no file descriptor leaks and an ApacheBench load test.
+- **HTTPS tests** (in `tests/integration.sh`): with a `make TLS=1` executable,
+  a disposable self-signed certificate is generated with `openssl` in a
+  temporary folder (never in the repository), then they check: certificate,
+  ALPN, TLS 1.2/1.3, HSTS, `TLS_REDIRECT` redirects, files, Range, gzip, POST,
+  keep-alive, proxy, `wss://` WebSocket, rejection of plain HTTP and cutting off
+  handshakes that are too slow. With the standard executable, the script checks
+  that `TLS_PORT` is rejected with a clear message.
 
-L'intégration continue (GitHub Actions) exécute tout cela sous Linux (dont une
-passe sous sanitizers, avec et sans HTTPS), macOS et Windows (avec et sans
-HTTPS), et construit l'image Docker, à chaque `push`.
+Continuous integration (GitHub Actions) runs all of this on Linux (including a
+run under sanitizers, with and without HTTPS), macOS and Windows (with and
+without HTTPS), and builds the Docker image, on every `push`.
 
-### 14.3 Ajouter une fonctionnalité
+### 14.3 Adding a feature
 
-1. Lisez [CONTRIBUTING.md](CONTRIBUTING.md) (règles de code et de licence).
-2. Créez une branche : `git checkout -b feature/ma-fonction`.
-3. Code spécifique à un système → `platform.c`. Nouveau réglage → `config.h`,
-   `config_apply()`, `config_print()`, le modèle `LITH_DEFAULT_CONF` et le
-   chapitre 5 de ce document.
-4. Ajoutez des tests, vérifiez `make test`, `make integration` et
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) (code and license rules).
+2. Create a branch: `git checkout -b feature/my-feature`.
+3. System-specific code → `platform.c`. New setting → `config.h`,
+   `config_apply()`, `config_print()`, the `LITH_DEFAULT_CONF` template and
+   chapter 5 of this document.
+4. Add tests, check `make test`, `make integration` and
    `make DEBUG=1 && make test DEBUG=1`.
-5. Ouvrez une *Pull Request*.
+5. Open a *Pull Request*.
 
 ---
 
-## Chapitre 15 — Dépannage et questions fréquentes
+## Chapter 15 — Troubleshooting and FAQ
 
-**Le port est déjà utilisé.**
-Un autre programme écoute déjà sur ce port. Changez de port (`lith start 8091`)
-ou trouvez le coupable : `netstat -ano | findstr :8090` (Windows),
-`sudo lsof -i :8090` (Linux/macOS).
+**The port is already in use.**
+Another program is already listening on that port. Change the port
+(`lith start 8091`) or find the culprit: `netstat -ano | findstr :8090`
+(Windows), `sudo lsof -i :8090` (Linux/macOS).
 
-**« Permission denied » sur le port 80 (Linux).**
-Les ports inférieurs à 1024 sont réservés à l'administrateur. Utilisez un port
-≥ 1024 derrière Caddy/nginx, ou `AmbientCapabilities=CAP_NET_BIND_SERVICE` avec
-systemd (12.3). Ne lancez pas LITH en `root`.
+**"Permission denied" on port 80 (Linux).**
+Ports below 1024 are reserved for the administrator. Use a port ≥ 1024 behind
+Caddy/nginx, or `AmbientCapabilities=CAP_NET_BIND_SERVICE` with systemd (12.3).
+Do not run LITH as `root`.
 
-**Ma page s'affiche, mais pas le CSS ou les images.**
-Vérifiez les chemins dans votre HTML : `href="/css/style.css"` (depuis la
-racine) ou `href="css/style.css"` (relatif à la page). Ouvrez la console du
-navigateur (F12 → *Réseau*) pour voir quelles adresses répondent `404`. Attention
-aux majuscules : sous Linux, `Logo.png` et `logo.png` sont deux fichiers différents.
+**My page shows up, but not the CSS or the images.**
+Check the paths in your HTML: `href="/css/style.css"` (from the root) or
+`href="css/style.css"` (relative to the page). Open the browser console
+(F12 → *Network*) to see which addresses answer `404`. Watch out for
+uppercase: on Linux, `Logo.png` and `logo.png` are two different files.
 
-**Je modifie un fichier mais le navigateur affiche l'ancienne version.**
-Le navigateur utilise son cache. Faites Ctrl+F5, ou utilisez `lith start --dev`.
-Vérifiez aussi `CACHE_CONTROL` : avec un `max-age` élevé, le navigateur ne
-redemande pas le fichier.
+**I edit a file but the browser shows the old version.**
+The browser uses its cache. Press Ctrl+F5, or use `lith start --dev`. Also
+check `CACHE_CONTROL`: with a high `max-age`, the browser does not ask for the
+file again.
 
-**Les routes de mon application React donnent 404 quand je recharge.**
-Activez `SPA_FALLBACK=1` (6.4).
+**My React application routes give 404 when I reload.**
+Enable `SPA_FALLBACK=1` (6.4).
 
-**Mon téléphone n'arrive pas à afficher le site.**
-Même Wi-Fi ? `HOST=0.0.0.0` ? Pare-feu autorisé ? Utilisez l'adresse IP de
-l'ordinateur, pas `localhost` (6.9).
+**My phone cannot display the site.**
+Same Wi-Fi? `HOST=0.0.0.0`? Firewall allowed? Use the computer's IP address,
+not `localhost` (6.9).
 
-**`/__lith/status` répond 403.**
-C'est voulu : sans `STATUS_AUTH`, il n'est visible que depuis la machine
-elle-même, sans proxy devant. Définissez `STATUS_AUTH=utilisateur:motdepasse`.
+**`/__lith/status` answers 403.**
+That is intended: without `STATUS_AUTH`, it is only visible from the machine
+itself, with no proxy in front. Set `STATUS_AUTH=user:password`.
 
-**Le proxy répond 502.**
-L'application derrière ne répond pas : est-elle lancée ? Sur la bonne adresse
-et le bon port ? Le journal de LITH indique quel backend est « hors service ».
-Testez-la directement : `curl http://127.0.0.1:3000/`.
+**The proxy answers 502.**
+The application behind it does not answer: is it running? On the right address
+and port? The LITH log tells which backend is "hors service" (out of service).
+Test it directly: `curl http://127.0.0.1:3000/`.
 
-**`lith stop` ne trouve pas le fichier PID.**
-Lancez-le depuis le même dossier que `lith start -d` (ou avec le même `-c`), car
-le chemin de `PID_FILE` est relatif à ce dossier.
+**`lith stop` cannot find the PID file.**
+Run it from the same folder as `lith start -d` (or with the same `-c`), because
+the `PID_FILE` path is relative to that folder.
 
-**Comment voir ce qui se passe en détail ?**
-`LOG_LEVEL=debug`, puis observez le journal. `lith check` affiche la
-configuration réellement utilisée.
+**How do I see what is happening in detail?**
+`LOG_LEVEL=debug`, then watch the log. `lith check` shows the configuration
+actually in use.
 
-**LITH est-il assez solide pour la production ?**
-Oui pour servir des sites et des applications de taille raisonnable : il est
-testé automatiquement (dont sous sanitizers mémoire), protège contre les
-attaques courantes et s'arrête proprement. Pour un site public, activez HTTPS
-(`make TLS=1`, ou un proxy devant : 12.4).
+**Is LITH solid enough for production?**
+Yes, for serving sites and applications of reasonable size: it is tested
+automatically (including under memory sanitizers), protects against common
+attacks and shuts down cleanly. For a public site, enable HTTPS (`make TLS=1`,
+or a proxy in front: 12.4).
 
-**`lith check` dit « compilé sans HTTPS ».**
-Votre exécutable a été compilé sans l'option HTTPS. Recompilez avec
-`make TLS=1` (chapitre 2.3), ou retirez `TLS_PORT` de `lith.conf`.
+**`lith check` says "compilé sans HTTPS" (built without HTTPS).**
+Your executable was built without the HTTPS option. Rebuild with `make TLS=1`
+(chapter 2.3), or remove `TLS_PORT` from `lith.conf`.
 
-**HTTPS : « certificat illisible » ou « le certificat et la clé ne correspondent pas ».**
-`TLS_CERT` doit contenir le certificat au format PEM (texte commençant par
-`-----BEGIN CERTIFICATE-----`), de préférence la chaîne complète
-(`fullchain.pem`) ; `TLS_KEY` la clé privée qui va avec (`privkey.pem`). Un
-fichier `.pfx`/`.p12` (Windows) se convertit avec
-`openssl pkcs12 -in site.pfx -nokeys -out cert.pem` et
+**HTTPS: "certificate unreadable" or "the certificate and the key do not match".**
+`TLS_CERT` must contain the certificate in PEM format (text starting with
+`-----BEGIN CERTIFICATE-----`), preferably the full chain (`fullchain.pem`);
+`TLS_KEY` the matching private key (`privkey.pem`). A `.pfx`/`.p12` file
+(Windows) can be converted with
+`openssl pkcs12 -in site.pfx -nokeys -out cert.pem` and
 `openssl pkcs12 -in site.pfx -nocerts -nodes -out key.pem`.
 
-**HTTPS : le navigateur affiche « Votre connexion n'est pas privée ».**
-Normal avec un certificat auto-signé (tests en local) : le navigateur ne le
-connaît pas. En production, utilisez un certificat d'une autorité reconnue
-(Let's Encrypt, gratuit : 12.4). Si l'avertissement parle de nom, le domaine
-demandé ne figure pas dans le certificat. Si le site ne se charge pas du tout,
-vérifiez que vous utilisez bien `https://` avec `TLS_PORT` (un `http://` sur le
-port HTTPS est refusé).
+**HTTPS: the browser shows "Your connection is not private".**
+Expected with a self-signed certificate (local tests): the browser does not
+know it. In production, use a certificate from a recognized authority (Let's
+Encrypt, free: 12.4). If the warning mentions the name, the requested domain is
+not in the certificate. If the site does not load at all, make sure you use
+`https://` with `TLS_PORT` (an `http://` request on the HTTPS port is rejected).
 
-**Puis-je exécuter du PHP ?**
-Pas directement. Lancez PHP avec son serveur intégré ou PHP-FPM derrière un
-serveur compatible, puis utilisez `PROXY` (chapitre 10).
+**Can I run PHP?**
+Not directly. Run PHP with its built-in server or PHP-FPM behind a compatible
+server, then use `PROXY` (chapter 10).
 
 ---
 
-## Chapitre 16 — Feuille de route et choix techniques (dont Rust)
+## Chapter 16 — Roadmap and technical choices (including Rust)
 
-### 16.1 D'où vient la 1.0.0
+### 16.1 Where 1.0.0 comes from
 
-La 1.0.0 reprend les idées réalistes de la feuille de route d'origine du projet
-et les livre dans une première version stable et testée. Les anciens numéros de
-version intermédiaires ont été abandonnés : LITH repart proprement de **1.0.0**
-et suivra désormais le versionnage sémantique (`MAJEUR.MINEUR.CORRECTIF`).
+1.0.0 takes the realistic ideas from the project's original roadmap and
+delivers them in a first stable, tested release. The old intermediate version
+numbers were dropped: LITH starts again cleanly at **1.0.0** and will now
+follow semantic versioning (`MAJOR.MINOR.PATCH`).
 
-**Déjà livré dans la 1.0.0** :
+**Already delivered in 1.0.0**:
 
-| Idée d'origine | État dans la 1.0.0 |
-|----------------|--------------------|
-| Limitation de débit / anti-DDoS | `RATE_LIMIT`, seau à jetons par IP, `429` |
-| En-têtes de sécurité | `SECURITY_HEADERS`, `CSP`, `CORS_ORIGIN` |
-| Compression gzip | intégrée, sans zlib, avec cache |
-| WebSockets | RFC 6455, utilisé par le rechargement automatique |
-| Proxy inverse | `PROXY` |
-| Répartition de charge | round-robin + bascule |
-| Vérification de l'état des serveurs | health checks périodiques |
-| Authentification Basic | `AUTH` |
-| Tableau de bord de supervision | `/__lith/status` (JSON), protégé |
-| Métriques Prometheus | `/__lith/metrics` |
-| Zero-copy (`sendfile`) | sous Linux |
-| Conteneurisation | image `scratch` ≈ 330 Ko + health check |
+| Original idea | Status in 1.0.0 |
+|---------------|-----------------|
+| Rate limiting / anti-DDoS | `RATE_LIMIT`, per-IP token bucket, `429` |
+| Security headers | `SECURITY_HEADERS`, `CSP`, `CORS_ORIGIN` |
+| Gzip compression | built in, no zlib, cached |
+| WebSockets | RFC 6455, used by automatic reload |
+| Reverse proxy | `PROXY` |
+| Load balancing | round-robin + failover |
+| Server health checking | periodic health checks |
+| Basic authentication | `AUTH` |
+| Monitoring dashboard | `/__lith/status` (JSON), protected |
+| Prometheus metrics | `/__lith/metrics` |
+| Zero-copy (`sendfile`) | on Linux |
+| Containerization | `scratch` image ≈ 330 KB + health check |
 
-**Livré depuis** : **HTTPS natif** (option `make TLS=1`, module Rust + rustls,
-voir 16.4), avec redirection HTTP → HTTPS et HSTS.
+**Delivered since**: **native HTTPS** (`make TLS=1` option, Rust module +
+rustls, see 16.4), with HTTP → HTTPS redirect and HSTS.
 
-### 16.2 Les prochaines étapes recommandées
+### 16.2 Recommended next steps
 
-Par ordre de priorité (valeur pour les utilisateurs / effort) :
+In order of priority (value for users / effort):
 
-1. ~~**HTTPS natif (TLS)**~~ — livré (`make TLS=1`). Suites possibles :
-   obtention automatique des certificats (ACME / Let's Encrypt intégré),
-   plusieurs certificats selon le nom de domaine (SNI), backends `https://`
-   pour le proxy, HTTPS dans l'image Docker et les exécutables publiés.
-2. **Rechargement de la configuration à chaud** (`SIGHUP`) sans couper les
-   connexions, y compris le rechargement du certificat après renouvellement.
-3. **Redirections et réécritures** configurables (`REDIRECT=/ancien /nouveau 301`),
-   puis routage par motifs.
-4. **Améliorations du proxy** : réutilisation des connexions vers les backends,
-   transmission des WebSockets, corps « chunked ».
-5. **CGI / FastCGI** pour exécuter PHP ou Python directement.
-6. **Boucle d'événements** (`epoll`, `kqueue`, IOCP) en option, pour les très
-   grands nombres de connexions simultanées.
-7. **Compression plus forte** (Huffman dynamique) et **Brotli** pré-compressé
-   (`fichier.css.br` servi s'il existe).
-8. **Jetons JWT** pour protéger des API.
-9. **HTTP/2**, puis éventuellement **HTTP/3**, de préférence via une bibliothèque
-   éprouvée plutôt qu'une réécriture maison.
-10. **Plugins** (bibliothèques chargées dynamiquement) une fois l'API interne stabilisée.
+1. ~~**Native HTTPS (TLS)**~~ — delivered (`make TLS=1`). Possible follow-ups:
+   automatic certificate retrieval (built-in ACME / Let's Encrypt), several
+   certificates depending on the domain name (SNI), `https://` backends for the
+   proxy, HTTPS in the Docker image and in the published executables.
+2. **Hot configuration reload** (`SIGHUP`) without dropping connections,
+   including reloading the certificate after renewal.
+3. **Configurable redirects and rewrites** (`REDIRECT=/old /new 301`), then
+   pattern-based routing.
+4. **Proxy improvements**: reusing connections to backends, forwarding
+   WebSockets, "chunked" bodies.
+5. **CGI / FastCGI** to run PHP or Python directly.
+6. **Event loop** (`epoll`, `kqueue`, IOCP) as an option, for very large
+   numbers of concurrent connections.
+7. **Stronger compression** (dynamic Huffman) and pre-compressed **Brotli**
+   (`file.css.br` served if it exists).
+8. **JWT tokens** to protect APIs.
+9. **HTTP/2**, then possibly **HTTP/3**, preferably through a proven library
+   rather than a home-made rewrite.
+10. **Plugins** (dynamically loaded libraries) once the internal API is stable.
 
-### 16.3 Ce qui a été volontairement écarté
+### 16.3 What was deliberately left out
 
-La feuille de route d'origine contenait aussi des idées qui ne relèvent pas
-d'un serveur web, ou pas de la technologie actuelle : informatique quantique,
-stockage sur ADN, réseau interplanétaire, code qui se réécrit seul par IA,
-système d'exploitation dédié, FPGA, etc. Elles ont été retirées : un projet qui
-promet tout ne livre rien. La force de LITH est d'être **petit, sûr, portable
-et compréhensible** ; chaque nouvelle fonctionnalité doit renforcer ces
-qualités. Un « mini-WAF » à base de motifs SQL/XSS a aussi été écarté pour
-l'instant : ces filtres bloquent facilement des utilisateurs légitimes et
-donnent un faux sentiment de sécurité ; une CSP et un code applicatif correct
-protègent mieux.
+The original roadmap also contained ideas that do not belong to a web server,
+or not to current technology: quantum computing, DNA storage, interplanetary
+networking, AI self-rewriting code, a dedicated operating system, FPGA, etc.
+They were removed: a project that promises everything delivers nothing. LITH's
+strength is to be **small, safe, portable and understandable**; every new
+feature must strengthen these qualities. A "mini-WAF" based on SQL/XSS patterns
+was also left out for now: such filters easily block legitimate users and give
+a false sense of security; a CSP and correct application code protect better.
 
-### 16.4 Faut-il réécrire LITH en Rust ?
+### 16.4 Should LITH be rewritten in Rust?
 
-**Recommandation : non, pas de réécriture. Gardez le cœur en C11, et faites
-intervenir Rust seulement là où il apporte le plus : un module HTTPS optionnel.**
+**Recommendation: no rewrite. Keep the core in C11, and bring in Rust only
+where it adds the most value: an optional HTTPS module.**
 
-Pourquoi ne **pas** tout réécrire :
+Why **not** rewrite everything:
 
-- Le code C de la 1.0.0 est désormais modulaire, testé (unitaires, intégration,
-  AddressSanitizer, UBSan) et sans dépendance. Une réécriture repartirait de
-  zéro et retarderait d'autant les vraies nouveautés.
-- L'identité de LITH, c'est la légèreté et la portabilité : un exécutable de
-  300 Ko qui se compile avec n'importe quel compilateur C, jusque sur de petits
-  appareils embarqués (routeurs, objets connectés). Un équivalent Rust est plus
-  gros et demande une chaîne de compilation plus lourde, moins disponible sur
-  ces cibles.
-- Les risques classiques du C (débordements de tampon, fuites) sont ici
-  contenus par une architecture simple, des fonctions bornées, la validation
-  stricte des entrées et les tests sous sanitizers.
+- The 1.0.0 C code is now modular, tested (unit, integration,
+  AddressSanitizer, UBSan) and dependency-free. A rewrite would start from
+  scratch and delay the real new features accordingly.
+- LITH's identity is lightness and portability: a 300 KB executable that
+  builds with any C compiler, down to small embedded devices (routers,
+  connected objects). A Rust equivalent is larger and requires a heavier
+  toolchain, less available on those targets.
+- The classic risks of C (buffer overflows, leaks) are contained here by a
+  simple architecture, bounded functions, strict input validation and tests
+  under sanitizers.
 
-Où Rust a **vraiment** du sens : **HTTPS**. Le chiffrement et l'analyse des
-certificats sont les parties les plus délicates et les plus exposées d'un
-serveur ; c'est là qu'une faille mémoire coûte le plus cher. La bibliothèque
-Rust **rustls** est moderne, sûre en mémoire et a fait l'objet d'audits.
+Where Rust **really** makes sense: **HTTPS**. Encryption and certificate
+parsing are the most delicate and most exposed parts of a server; that is where
+a memory bug costs the most. The Rust library **rustls** is modern,
+memory-safe and has been audited.
 
-C'est ce qui a été mis en œuvre :
+This is what was implemented:
 
 ```text
-   LITH (C11)  ──── API C minimale (FFI) ────▶  lith_tls (Rust + rustls)
-   - serveur, HTTP, fichiers, proxy            - poignée de main TLS
-   - sockets, délais, keep-alive               - chiffrement / déchiffrement
-   - tls.c : LithStream (clair ou TLS)         - chargement des certificats
+   LITH (C11)  ──── minimal C API (FFI) ────▶  lith_tls (Rust + rustls)
+   - server, HTTP, files, proxy                - TLS handshake
+   - sockets, timeouts, keep-alive             - encryption / decryption
+   - tls.c: LithStream (plain or TLS)          - certificate loading
 ```
 
-- Le dossier `tls/` contient une bibliothèque Rust compilée en bibliothèque
-  statique (`crate-type = ["staticlib"]`, moins de 300 lignes), qui expose une
-  douzaine de fonctions C déclarées dans `tls/lith_tls.h` : créer un contexte
-  avec un certificat et une clé (`rtls_config_new`), accepter une connexion
-  (`rtls_accept`), lire (`rtls_feed` + `rtls_read`), écrire (`rtls_write` +
-  `rtls_take_output`), fermer (`rtls_close`).
-- L'API fonctionne « à tampons » : Rust ne voit jamais la socket. Le C garde la
-  main sur le réseau, donc sur les délais et les protections ; aucune
-  différence de comportement entre HTTP et HTTPS en dehors du chiffrement.
-- Le fournisseur cryptographique est **ring** (pas besoin de cmake ni de nasm),
-  la panique Rust est réglée sur `abort` et aucune fonction ne panique au
-  travers de la frontière C. Les versions des dépendances sont figées par
-  `tls/Cargo.lock` et la compilation utilise `--locked`.
-- Activé uniquement avec `make TLS=1` : sans cette option, LITH reste 100 % C,
-  sans dépendance, exactement comme avant ; `tls.c` se réduit alors à des
-  appels directs à `recv`/`send`.
+- The `tls/` folder contains a Rust library built as a static library
+  (`crate-type = ["staticlib"]`, under 300 lines), which exposes about a dozen
+  C functions declared in `tls/lith_tls.h`: create a context with a
+  certificate and a key (`rtls_config_new`), accept a connection
+  (`rtls_accept`), read (`rtls_feed` + `rtls_read`), write (`rtls_write` +
+  `rtls_take_output`), close (`rtls_close`).
+- The API is "buffer-based": Rust never sees the socket. The C code stays in
+  charge of the network, and therefore of timeouts and protections; no
+  difference in behavior between HTTP and HTTPS apart from encryption.
+- The crypto provider is **ring** (no need for cmake or nasm), Rust panics are
+  set to `abort` and no function panics across the C boundary. Dependency
+  versions are pinned by `tls/Cargo.lock` and the build uses `--locked`.
+- Enabled only with `make TLS=1`: without this option, LITH stays 100% C, with
+  no dependencies, exactly as before; `tls.c` then boils down to direct
+  `recv`/`send` calls.
 
-Alternative écartée : **mbedTLS** (C, léger, conçu pour l'embarqué). Plus simple
-à intégrer sans chaîne Rust, mais il aurait ajouté du C à la partie la plus
-exposée du serveur ; rustls offre une meilleure garantie de sûreté mémoire. La
-séparation par `tls.c` permettrait néanmoins d'ajouter un second module
-(mbedTLS) pour des cibles où Rust n'est pas disponible.
+Alternative ruled out: **mbedTLS** (C, lightweight, designed for embedded
+systems). Simpler to integrate without a Rust toolchain, but it would have
+added C code to the most exposed part of the server; rustls offers a better
+memory-safety guarantee. The separation through `tls.c` would nevertheless
+allow adding a second module (mbedTLS) for targets where Rust is not available.
 
-En résumé : **C pour le cœur (léger, portable, déjà solide), Rust en module
-optionnel pour HTTPS (là où la sûreté mémoire compte le plus)**. Une réécriture
-complète ne serait à reconsidérer que si LITH devenait un projet beaucoup plus
-vaste (HTTP/2, HTTP/3, plugins...) porté par une équipe à l'aise avec Rust.
-
----
-
-## Chapitre 17 — Glossaire
-
-| Terme | Définition |
-|-------|------------|
-| **Backend** | Application placée derrière LITH, à qui il transmet des requêtes (proxy) |
-| **Cache** | Copie gardée à portée de main pour aller plus vite (en RAM côté serveur, sur le disque côté navigateur) |
-| **Client** | Le programme qui fait la demande : navigateur, `curl`, application mobile... |
-| **CORS** | Règles qui autorisent (ou non) un site à lire les réponses d'un autre |
-| **CSP** | *Content-Security-Policy* : liste des sources autorisées pour les scripts, styles, images |
-| **Démon** | Programme qui tourne en arrière-plan, sans terminal |
-| **En-tête** | Ligne d'information `Nom: valeur` d'une requête ou d'une réponse HTTP |
-| **ETag** | Étiquette identifiant une version d'un fichier, pour les réponses `304` |
-| **gzip** | Format de compression utilisé sur le web |
-| **Health check** | Vérification automatique qu'un serveur répond |
-| **HTTP / HTTPS** | Le protocole du web / sa version chiffrée |
-| **IP (adresse)** | Numéro qui identifie une machine sur un réseau (`192.168.1.20`) |
-| **Keep-alive** | Réutiliser une connexion pour plusieurs requêtes |
-| **localhost** | Votre propre machine (`127.0.0.1`) |
-| **LRU** | *Least Recently Used* : on retire d'abord ce qui a servi le moins récemment |
-| **MIME (type)** | Nature d'un contenu (`text/html`, `image/png`...) |
-| **PATH** | Liste des dossiers où le système cherche les commandes |
-| **PID** | Numéro d'un processus en cours d'exécution |
-| **Pipelining** | Envoyer plusieurs requêtes à la suite sans attendre les réponses |
-| **Port** | Numéro de « porte » d'un programme réseau sur une machine |
-| **Prometheus** | Outil de supervision qui collecte des métriques |
-| **Proxy inverse** | Serveur qui reçoit les requêtes et les transmet à un autre serveur |
-| **Requête / réponse** | La demande du client / ce que le serveur renvoie |
-| **Round-robin** | Répartition à tour de rôle |
-| **Slowloris** | Attaque qui occupe un serveur en envoyant des requêtes extrêmement lentement |
-| **SPA** | *Single Page Application* : application web monopage (React, Vue...) |
-| **Thread** | Fil d'exécution : permet de faire plusieurs choses en même temps dans un programme |
-| **TLS** | La technologie de chiffrement derrière HTTPS |
-| **URL** | Adresse complète d'une ressource web |
-| **WebSocket** | Connexion permanente et bidirectionnelle entre navigateur et serveur |
+In short: **C for the core (light, portable, already solid), Rust as an
+optional module for HTTPS (where memory safety matters most)**. A complete
+rewrite would only be worth reconsidering if LITH became a much larger project
+(HTTP/2, HTTP/3, plugins...) carried by a team comfortable with Rust.
 
 ---
 
-## Annexe A — Aide-mémoire
+## Chapter 17 — Glossary
+
+| Term | Definition |
+|------|------------|
+| **Backend** | Application placed behind LITH, to which it forwards requests (proxy) |
+| **Cache** | A copy kept at hand to go faster (in RAM on the server side, on disk on the browser side) |
+| **Client** | The program making the request: browser, `curl`, mobile app... |
+| **CORS** | Rules that allow (or not) a site to read the responses of another one |
+| **CSP** | *Content-Security-Policy*: list of allowed sources for scripts, styles, images |
+| **Daemon** | Program running in the background, without a terminal |
+| **ETag** | Tag identifying a version of a file, for `304` responses |
+| **gzip** | Compression format used on the web |
+| **Header** | `Name: value` information line of an HTTP request or response |
+| **Health check** | Automatic check that a server answers |
+| **HTTP / HTTPS** | The web protocol / its encrypted version |
+| **IP (address)** | Number identifying a machine on a network (`192.168.1.20`) |
+| **Keep-alive** | Reusing one connection for several requests |
+| **localhost** | Your own machine (`127.0.0.1`) |
+| **LRU** | *Least Recently Used*: what was used least recently is evicted first |
+| **MIME (type)** | Nature of a content (`text/html`, `image/png`...) |
+| **PATH** | List of folders where the system looks for commands |
+| **PID** | Number of a running process |
+| **Pipelining** | Sending several requests in a row without waiting for the responses |
+| **Port** | "Door" number of a network program on a machine |
+| **Prometheus** | Monitoring tool that collects metrics |
+| **Request / response** | The client's request / what the server sends back |
+| **Reverse proxy** | Server that receives requests and forwards them to another server |
+| **Round-robin** | Distribution in turn |
+| **Slowloris** | Attack that ties up a server by sending requests extremely slowly |
+| **SPA** | *Single Page Application*: web application on a single page (React, Vue...) |
+| **Thread** | Thread of execution: lets a program do several things at the same time |
+| **TLS** | The encryption technology behind HTTPS |
+| **URL** | Full address of a web resource |
+| **WebSocket** | Permanent, two-way connection between browser and server |
+
+---
+
+## Appendix A — Cheat sheet
 
 ```bash
-lith init mon-site            # créer un projet
-lith start                    # démarrer (port de lith.conf, 8090 par défaut)
-lith start 8080 --dev         # autre port + rechargement auto
-lith start -r dist -p 3000    # autre dossier, autre port
-lith start -d && lith stop    # arrière-plan (Linux/macOS)
-lith check                    # valider la configuration
-lith health                   # le serveur répond-il ?
+lith init my-site             # create a project
+lith start                    # start (port from lith.conf, 8090 by default)
+lith start 8080 --dev         # another port + auto reload
+lith start -r dist -p 3000    # another folder, another port
+lith start -d && lith stop    # background (Linux/macOS)
+lith check                    # validate the configuration
+lith health                   # is the server answering?
 ```
 
 ```ini
-# lith.conf - les réglages les plus utiles
+# lith.conf - the most useful settings
 PORT=8090
 PUBLIC_DIR=public
 SPA_FALLBACK=1
 RATE_LIMIT=50
 CSP=default-src 'self'
-AUTH=/admin admin:motdepasse
+AUTH=/admin admin:password
 PROXY=/api http://127.0.0.1:3000
-STATUS_AUTH=admin:motdepasse
+STATUS_AUTH=admin:password
 LOG_FILE=lith.log
-# HTTPS (exécutable compilé avec : make TLS=1)
+# HTTPS (executable built with: make TLS=1)
 TLS_PORT=443
 TLS_CERT=fullchain.pem
 TLS_KEY=privkey.pem
@@ -1909,44 +1880,44 @@ TLS_REDIRECT=1
 HSTS=31536000
 ```
 
-| Adresse | Rôle |
+| Address | Role |
 |---------|------|
-| `/__lith/health` | Disponibilité |
-| `/__lith/status` | Statistiques JSON |
+| `/__lith/health` | Availability |
+| `/__lith/status` | JSON statistics |
 | `/__lith/metrics` | Prometheus |
 
 ---
 
-## Annexe B — Codes de réponse HTTP utilisés par LITH
+## Appendix B — HTTP status codes used by LITH
 
-| Code | Nom | Quand LITH l'envoie |
-|------|-----|---------------------|
-| 101 | Switching Protocols | Ouverture d'un WebSocket (live reload) |
-| 200 | OK | Fichier envoyé |
-| 204 | No Content | Réponse à `OPTIONS` |
-| 206 | Partial Content | Morceau de fichier (`Range`) |
-| 301 | Moved Permanently | `/dossier` → `/dossier/` ; `http://` → `https://` (`TLS_REDIRECT`, `GET`/`HEAD`) |
-| 304 | Not Modified | Le navigateur a déjà la bonne version |
-| 308 | Permanent Redirect | `http://` → `https://` pour `POST`, `PUT`... (`TLS_REDIRECT`) |
-| 400 | Bad Request | Requête mal formée, `Host` manquant, chemin invalide |
-| 401 | Unauthorized | Mot de passe requis (`AUTH`, `STATUS_AUTH`) |
-| 403 | Forbidden | Tentative de sortir du dossier public ; statut demandé à distance |
-| 404 | Not Found | Fichier absent ou caché |
-| 405 | Method Not Allowed | `POST`/`PUT`/`DELETE` sur un fichier statique |
-| 408 | Request Timeout | Requête trop lente (`REQUEST_TIMEOUT`) |
-| 411 | Length Required | Corps « chunked » sans `Content-Length` |
-| 413 | Content Too Large | Corps supérieur à `MAX_BODY_SIZE` |
-| 414 | URI Too Long | URL de plus de 2048 caractères |
-| 416 | Range Not Satisfiable | Morceau demandé hors du fichier |
-| 429 | Too Many Requests | `RATE_LIMIT` dépassé |
-| 431 | Request Header Fields Too Large | En-têtes de plus de 16 Ko |
-| 500 | Internal Server Error | Problème inattendu (rare) |
-| 501 | Not Implemented | Méthode inconnue, encodage non géré, WebSocket vers un backend |
-| 502 | Bad Gateway | Aucun backend du proxy ne répond correctement |
-| 503 | Service Unavailable | File d'attente pleine (`MAX_PENDING`) |
-| 504 | Gateway Timeout | Backend trop lent (`PROXY_TIMEOUT`) |
-| 505 | HTTP Version Not Supported | Version autre que HTTP/1.x |
+| Code | Name | When LITH sends it |
+|------|------|--------------------|
+| 101 | Switching Protocols | Opening a WebSocket (live reload) |
+| 200 | OK | File sent |
+| 204 | No Content | Response to `OPTIONS` |
+| 206 | Partial Content | Piece of a file (`Range`) |
+| 301 | Moved Permanently | `/folder` → `/folder/`; `http://` → `https://` (`TLS_REDIRECT`, `GET`/`HEAD`) |
+| 304 | Not Modified | The browser already has the right version |
+| 308 | Permanent Redirect | `http://` → `https://` for `POST`, `PUT`... (`TLS_REDIRECT`) |
+| 400 | Bad Request | Malformed request, missing `Host`, invalid path |
+| 401 | Unauthorized | Password required (`AUTH`, `STATUS_AUTH`) |
+| 403 | Forbidden | Attempt to leave the public folder; status requested remotely |
+| 404 | Not Found | Missing or hidden file |
+| 405 | Method Not Allowed | `POST`/`PUT`/`DELETE` on a static file |
+| 408 | Request Timeout | Request too slow (`REQUEST_TIMEOUT`) |
+| 411 | Length Required | "Chunked" body without `Content-Length` |
+| 413 | Content Too Large | Body larger than `MAX_BODY_SIZE` |
+| 414 | URI Too Long | URL longer than 2048 characters |
+| 416 | Range Not Satisfiable | Requested piece outside the file |
+| 429 | Too Many Requests | `RATE_LIMIT` exceeded |
+| 431 | Request Header Fields Too Large | Headers larger than 16 KB |
+| 500 | Internal Server Error | Unexpected problem (rare) |
+| 501 | Not Implemented | Unknown method, unsupported encoding, WebSocket to a backend |
+| 502 | Bad Gateway | No proxy backend answers correctly |
+| 503 | Service Unavailable | Queue full (`MAX_PENDING`) |
+| 504 | Gateway Timeout | Backend too slow (`PROXY_TIMEOUT`) |
+| 505 | HTTP Version Not Supported | Version other than HTTP/1.x |
 
 ---
 
-*LITH 1.0.0 — FomaDev. Distribué sous la [Fordima Public License](LICENSE).*
+*LITH 1.0.0 — FomaDev. Distributed under the [Fordima Public License](LICENSE).*
