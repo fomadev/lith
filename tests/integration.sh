@@ -180,15 +180,23 @@ expect "Sec-WebSocket-Accept (RFC 6455)" "1" "$(echo "$WS" | grep -c 's3pPLMBiTx
 # Client WebSocket en bash pur : certains curl (macOS) ferment la connexion dès la réponse 101.
 exec 4<>"/dev/tcp/127.0.0.1/$PORT"
 printf 'GET /__lith/livereload HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n' >&4
-timeout 8 cat <&4 > "$WORK/ws.bin" & WS_PID=$!
+cat <&4 > "$WORK/ws.bin" & WS_PID=$!
 sleep 1.5
 echo "modifié" > public/touch.txt
-wait "$WS_PID" 2>/dev/null
+# On surveille le fichier plutôt que d'attendre le lecteur (wait se comporte différemment selon les bash).
+GOT=0
+for _ in $(seq 1 80); do
+    grep -q 'reload' "$WORK/ws.bin" 2>/dev/null && { GOT=1; break; }
+    sleep 0.1
+done
+WS_CLIENTS=$(curl -s "$BASE/__lith/status" | sed -n 's/.*"live_reload_clients": *\([0-9]*\).*/\1/p')
+kill "$WS_PID" 2>/dev/null
 exec 4<&-
 expect "live reload : modification détectée" "1" "$([ "$(grep -c 'Modification détectée' server.log)" -ge 1 ] && echo 1 || echo 0)"
-if [ "$(grep -c 'reload' "$WORK/ws.bin")" -ge 1 ]; then ok "live reload : trame 'reload' reçue"; else
-    ko "live reload : trame 'reload' reçue" "rien reçu"
-    echo "    --- reçu par le client ($(wc -c < "$WORK/ws.bin") octets) ---"; od -c "$WORK/ws.bin" | head -8
+if [ "$GOT" = 1 ]; then ok "live reload : trame 'reload' reçue"; else
+    ko "live reload : trame 'reload' reçue" "rien reçu en 8 s"
+    echo "    --- reçu par le client ($(wc -c < "$WORK/ws.bin") octets), clients live reload côté serveur : ${WS_CLIENTS:-?} ---"
+    od -c "$WORK/ws.bin" | tail -4
     echo "    --- journal (live reload) ---"; grep -i 'live\|livereload\|Modification' server.log | tail -8
 fi
 
