@@ -186,11 +186,12 @@ echo "modifié" > public/touch.txt
 # On surveille le fichier plutôt que d'attendre le lecteur (wait se comporte différemment selon les bash).
 GOT=0
 for _ in $(seq 1 80); do
-    grep -q 'reload' "$WORK/ws.bin" 2>/dev/null && { GOT=1; break; }
+    # LC_ALL=C + -a : la trame commence par l'octet 0x81, que le grep BSD (macOS) rejette en UTF-8.
+    LC_ALL=C grep -aq 'reload' "$WORK/ws.bin" 2>/dev/null && { GOT=1; break; }
     sleep 0.1
 done
 WS_CLIENTS=$(curl -s "$BASE/__lith/status" | sed -n 's/.*"live_reload_clients": *\([0-9]*\).*/\1/p')
-kill "$WS_PID" 2>/dev/null
+kill "$WS_PID" 2>/dev/null; { wait "$WS_PID"; } 2>/dev/null
 exec 4<&-
 expect "live reload : modification détectée" "1" "$([ "$(grep -c 'Modification détectée' server.log)" -ge 1 ] && echo 1 || echo 0)"
 if [ "$GOT" = 1 ]; then ok "live reload : trame 'reload' reçue"; else
