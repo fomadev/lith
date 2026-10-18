@@ -144,7 +144,7 @@ lith.conf  configuration commentée
 
 ## Licence
 
-Distribué sous la [FomaDev Public License (FPL)](LICENSE). L'utilisation des
+Distribué sous la [Fordima Public License (FPL)](LICENSE). L'utilisation des
 exécutables compilés est gratuite, y compris en entreprise. La republication
 commerciale, l'intégration du code source dans un outil propriétaire concurrent
 et les forks indépendants permanents nécessitent une autorisation commerciale.

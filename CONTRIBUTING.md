@@ -4,7 +4,7 @@ Merci de votre intérêt pour **LITH** ! Pour garder un code portable, sûr et
 cohérent, chaque contribution suit les règles ci-dessous.
 
 En contribuant à ce dépôt, vous acceptez que votre code soit régi par la
-**FomaDev Public License (FPL)** et intégré à l'écosystème officiel FomaDev.
+**Fordima Public License (FPL)** et intégré à l'écosystème officiel FomaDev.
 
 ---
 

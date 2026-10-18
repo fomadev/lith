@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Fordima Inc. All rights reserved.
+// Licensed under the Fordima Public License (FPL) v1.0.
+// See the LICENSE file in the project root for full license information.
+
 #include <windows.h>
 
 // ============================================================================
@@ -26,7 +30,7 @@ BEGIN
             VALUE "FileDescription",  "LITH - Light HTTP Server"
             VALUE "FileVersion",      "1.0.0"
             VALUE "InternalName",     "lith"
-            VALUE "LegalCopyright",   "Copyright (c) 2026 FomaDev, a Fordima Inc. company."
+            VALUE "LegalCopyright",   "Copyright (c) 2026 Fordima Inc. Licensed under the Fordima Public License (FPL) v1.0."
             VALUE "OriginalFilename", "lith.exe"
             VALUE "ProductName",      "LITH Engine"
             VALUE "ProductVersion",   "1.0.0"

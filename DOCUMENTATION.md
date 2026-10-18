@@ -1948,4 +1948,4 @@ HSTS=31536000
 
 ---
 
-*LITH 1.0.0 — FomaDev. Distribué sous la [FomaDev Public License](LICENSE).*
+*LITH 1.0.0 — FomaDev. Distribué sous la [Fordima Public License](LICENSE).*
