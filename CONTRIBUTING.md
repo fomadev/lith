@@ -1,35 +1,37 @@
-# Contribuer à LITH
+# Contributing to LITH
 
-Merci de votre intérêt pour **LITH** ! Pour garder un code portable, sûr et
-cohérent, chaque contribution suit les règles ci-dessous.
+Thank you for your interest in **LITH**! To keep the code portable, safe and
+consistent, every contribution follows the rules below.
 
-En contribuant à ce dépôt, vous acceptez que votre code soit régi par la
-**Fordima Public License (FPL)** et intégré à l'écosystème officiel FomaDev.
-
----
-
-## Licence et conformité
-
-1. **Forks temporaires uniquement** : un fork sert à proposer des modifications
-   au dépôt officiel. Les forks permanents et indépendants destinés à contourner
-   l'architecture ou la licence FomaDev sont interdits.
-2. **Restrictions commerciales** : les versions modifiées de LITH, son code ou
-   ses dérivés ne peuvent être distribués, revendus ou intégrés à un logiciel
-   commercial concurrent sans autorisation commerciale préalable.
+By contributing to this repository, you agree that your code is governed by the
+**Fordima Public License (FPL)** and integrated into the official FomaDev ecosystem.
 
 ---
 
-## Préparer son environnement
+## License and compliance
 
-- Un compilateur **C11** : `gcc` ou `clang` (Linux/macOS), **MinGW-w64** sous
-  Windows (MSYS2 ou w64devkit).
+1. **Temporary forks only**: a fork is used to propose changes to the official
+   repository. Permanent, independent forks intended to bypass the FomaDev
+   architecture or license are not allowed.
+2. **Commercial restrictions**: modified versions of LITH, its code or its
+   derivatives may not be distributed, resold or embedded in competing
+   commercial software without prior commercial authorization.
+
+---
+
+## Setting up your environment
+
+- A **C11** compiler: `gcc` or `clang` (Linux/macOS), **MinGW-w64** on
+  Windows (MSYS2 or w64devkit).
 - **GNU Make**.
-- Pour les tests d'intégration : `bash` et `curl` (Git Bash convient sous Windows).
+- For integration tests: `bash` and `curl` (Git Bash works on Windows).
+- Only for the optional HTTPS module (`make TLS=1`): [Rust](https://rustup.rs)
+  (`cargo`) and `openssl` for the tests.
 
 ```bash
 git clone https://github.com/fomadev/lith.git
 cd lith
-git checkout -b feature/ma-fonctionnalite   # ou fix/mon-correctif
+git checkout -b feature/my-feature   # or fix/my-fix
 make
 make test
 make integration
@@ -37,78 +39,80 @@ make integration
 
 ---
 
-## Organisation du code
+## Code layout
 
-| Fichier | Rôle |
-|---------|------|
-| `src/main.c` | Ligne de commande (`start`, `stop`, `init`, `check`, `health`) |
-| `src/server.c` | Écoute réseau, pool de threads, cycle de vie d'une connexion |
-| `src/http_parser.c` | Analyse HTTP, MIME, dates, chemins, Range |
-| `src/router.c` | Aiguillage des requêtes |
-| `src/static.c` | Fichiers statiques (304, Range, gzip, cache, listes de dossiers) |
-| `src/response.c` | Construction des réponses et pages d'erreur |
-| `src/cache.c` | Cache mémoire LRU |
-| `src/crypto.c` | SHA-1, Base64, CRC-32, compression gzip |
-| `src/security.c` | Authentification Basic, limitation de débit |
-| `src/proxy.c` | Proxy inverse, répartition de charge, health checks |
-| `src/websocket.c` | WebSocket et rechargement automatique |
-| `src/metrics.c` | Statistiques `/__lith/status` et `/__lith/metrics` |
-| `src/config.c` | Lecture et validation de `lith.conf` |
-| `src/platform.c` | Tout ce qui dépend du système d'exploitation |
-| `src/logger.c`, `src/strbuf.c`, `src/daemon.c` | Journaux, chaînes extensibles, mode démon |
+| File | Role |
+|------|------|
+| `src/main.c` | Command line (`start`, `stop`, `init`, `check`, `health`) |
+| `src/server.c` | Network listening (HTTP and HTTPS), thread pool, connection lifecycle |
+| `src/tls.c` | Connection I/O (`LithStream`): plain socket, or through the TLS module |
+| `src/http_parser.c` | HTTP parsing, MIME types, dates, paths, Range |
+| `src/router.c` | Request routing |
+| `src/static.c` | Static files (304, Range, gzip, cache, directory listings) |
+| `src/response.c` | Building responses and error pages |
+| `src/cache.c` | LRU in-memory cache |
+| `src/crypto.c` | SHA-1, Base64, CRC-32, gzip compression |
+| `src/security.c` | Basic authentication, rate limiting |
+| `src/proxy.c` | Reverse proxy, load balancing, health checks |
+| `src/websocket.c` | WebSocket and live reload |
+| `src/metrics.c` | `/__lith/status` and `/__lith/metrics` statistics |
+| `src/config.c` | Reading and validating `lith.conf` |
+| `src/platform.c` | Everything that depends on the operating system |
+| `src/logger.c`, `src/strbuf.c`, `src/daemon.c` | Logs, growable strings, daemon mode |
+| `tls/` | Optional HTTPS module in Rust (rustls), C API in `tls/lith_tls.h` |
 
-Chaque fichier `src/x.c` a son en-tête dans `include/`. Un nouveau fichier
-placé dans `src/` est compilé automatiquement par le `Makefile`.
+Each `src/x.c` file has its header in `include/`. A new file placed in `src/`
+is compiled automatically by the `Makefile`.
 
 ---
 
-## Règles techniques
+## Technical rules
 
-### Portabilité
-LITH doit compiler **sans avertissement** (`-Wall -Wextra`) et fonctionner à
-l'identique sous Linux, macOS et Windows. Le code spécifique à un système va
-dans `src/platform.c`, protégé par `#ifdef _WIN32`. Ailleurs, utilisez les
-abstractions (`socket_t`, `lith_stat`, `lith_fopen`, `lith_send_all`...).
+### Portability
+LITH must compile **without warnings** (`-Wall -Wextra`) and behave the same
+way on Linux, macOS and Windows. System-specific code goes into
+`src/platform.c`, guarded by `#ifdef _WIN32`. Elsewhere, use the abstractions
+(`socket_t`, `lith_stat`, `lith_fopen`, `lith_send_all`...).
 
-### Zéro dépendance
-Aucune bibliothèque externe n'est ajoutée au cœur de LITH. Une fonctionnalité
-qui en exigerait une doit être **optionnelle** et activée à la compilation.
+### Zero dependencies
+No external library is added to the LITH core. A feature that would require
+one must be **optional** and enabled at build time (like HTTPS with `make TLS=1`).
 
-### Sûreté mémoire
-- Fonctions bornées (`snprintf`, `memcpy` avec tailles vérifiées), jamais `strcpy`/`sprintf`.
-- Toute donnée venant du réseau est considérée comme hostile : validez les longueurs.
-- Chaque `malloc` a son `free`, y compris sur les chemins d'erreur.
-- Vérifiez avec `make DEBUG=1 && make test DEBUG=1` (AddressSanitizer/UBSan sous Linux/macOS).
+### Memory safety
+- Bounded functions (`snprintf`, `memcpy` with checked sizes), never `strcpy`/`sprintf`.
+- Any data coming from the network is considered hostile: validate lengths.
+- Every `malloc` has its `free`, including on error paths.
+- Check with `make DEBUG=1 && make test DEBUG=1` (AddressSanitizer/UBSan on Linux/macOS).
 
 ### Tests
-Toute nouvelle fonctionnalité est accompagnée de tests :
-- fonction pure (analyse, calcul) → `tests/unit_tests.c` ;
-- comportement réseau → `tests/integration.sh`.
+Every new feature comes with tests:
+- pure function (parsing, computation) → `tests/unit_tests.c`;
+- network behavior → `tests/integration.sh`.
 
-### Messages de commit
-Phrase courte à l'impératif décrivant le changement :
+### Commit messages
+A short sentence in the imperative mood describing the change:
 
 ```text
-Ajoute la prise en charge de If-Range pour les requêtes partielles
+Add If-Range support for partial requests
 ```
 
-et non : `correction`.
+and not: `fix`.
 
 ---
 
-## Signaler un problème
+## Reporting a problem
 
-Ouvrez une *Issue* GitHub en indiquant :
-- système d'exploitation et compilateur ;
-- étapes pour reproduire ;
-- comportement attendu et comportement observé ;
-- journaux de LITH (lancez avec `LOG_LEVEL=debug` si possible) et sortie de `lith check`.
+Open a GitHub *Issue* with:
+- operating system and compiler;
+- steps to reproduce;
+- expected behavior and observed behavior;
+- LITH logs (run with `LOG_LEVEL=debug` if possible) and the output of `lith check`.
 
-Pour une faille de sécurité, contactez FomaDev en privé avant toute publication.
+For a security vulnerability, contact FomaDev privately before any public disclosure.
 
 ---
 
 ## Questions
 
-Pour toute question sur l'architecture, la licence ou une collaboration
-commerciale, contactez directement Fordi (FomaDev).
+For any question about the architecture, the license or a commercial
+collaboration, contact Fordi (FomaDev) directly.
