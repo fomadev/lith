@@ -1,0 +1,23 @@
+# Module TLS optionnel de LITH (make TLS=1).
+# Compilé en bibliothèque statique et lié au serveur écrit en C.
+[package]
+name = "lith_tls"
+version = "1.0.0"
+edition = "2021"
+publish = false
+description = "Couche HTTPS de LITH : rustls derrière une petite API C"
+license-file = "../LICENSE"
+
+[lib]
+crate-type = ["staticlib"]
+path = "src/lib.rs"
+
+[dependencies]
+# ring : fournisseur cryptographique qui ne demande qu'un compilateur C (pas de cmake / nasm).
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

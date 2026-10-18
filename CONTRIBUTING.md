@@ -1,147 +1,114 @@
-# Contributing to LITH
+# Contribuer à LITH
 
-Thank you for your interest in contributing to **LITH**. To maintain technical excellence, portability, and consistency throughout the project, all contributors are expected to follow the guidelines below.
+Merci de votre intérêt pour **LITH** ! Pour garder un code portable, sûr et
+cohérent, chaque contribution suit les règles ci-dessous.
 
-By contributing to this repository, you agree that your submissions are governed by the **FomaDev Public License (FPL)** and become part of the official FomaDev ecosystem.
-
----
-
-## Code of Compliance & Licensing
-
-Before opening an issue or submitting a pull request, please read the following rules carefully.
-
-### 1. Official Consolidation
-
-Temporary forks are permitted only for the purpose of contributing changes back to the official FomaDev repository. Creating permanent independent forks intended to bypass the FomaDev architecture or licensing terms is prohibited.
-
-### 2. Commercial Restrictions
-
-Modified versions of LITH, its source code, or derivative projects may not be distributed, resold, or integrated into competing commercial software without prior commercial authorization.
+En contribuant à ce dépôt, vous acceptez que votre code soit régi par la
+**Fordima Public License (FPL)** et intégré à l'écosystème officiel FomaDev.
 
 ---
 
-## Development Setup
+## Licence et conformité
 
-### Prerequisites
-
-To build and test LITH locally, your environment should include:
-
-- A **C11** compatible compiler:
-  - `gcc` on Linux/macOS
-  - `MinGW-w64` on Windows
-- **GNU Make**
+1. **Forks temporaires uniquement** : un fork sert à proposer des modifications
+   au dépôt officiel. Les forks permanents et indépendants destinés à contourner
+   l'architecture ou la licence FomaDev sont interdits.
+2. **Restrictions commerciales** : les versions modifiées de LITH, son code ou
+   ses dérivés ne peuvent être distribués, revendus ou intégrés à un logiciel
+   commercial concurrent sans autorisation commerciale préalable.
 
 ---
 
-## Getting Started
+## Préparer son environnement
 
-### 1. Clone the Repository
+- Un compilateur **C11** : `gcc` ou `clang` (Linux/macOS), **MinGW-w64** sous
+  Windows (MSYS2 ou w64devkit).
+- **GNU Make**.
+- Pour les tests d'intégration : `bash` et `curl` (Git Bash convient sous Windows).
 
 ```bash
 git clone https://github.com/fomadev/lith.git
 cd lith
-```
-
-### 2. Create a Feature Branch
-
-Always create a dedicated branch from `main` before making changes.
-
-```bash
-git checkout -b feature/your-feature-name
-
-# or
-
-git checkout -b fix/your-bug-fix
-```
-
-### 3. Build the Project
-
-The provided `Makefile` automatically discovers source files under `src/` and `src/server/`.
-
-Clean previous build artifacts:
-
-```bash
-make clean
-```
-
-Compile the project:
-
-```bash
+git checkout -b feature/ma-fonctionnalite   # ou fix/mon-correctif
 make
+make test
+make integration
 ```
 
 ---
 
-## Technical Standards
+## Organisation du code
 
-Every pull request is reviewed before being merged. Contributions should comply with the following standards.
+| Fichier | Rôle |
+|---------|------|
+| `src/main.c` | Ligne de commande (`start`, `stop`, `init`, `check`, `health`) |
+| `src/server.c` | Écoute réseau, pool de threads, cycle de vie d'une connexion |
+| `src/http_parser.c` | Analyse HTTP, MIME, dates, chemins, Range |
+| `src/router.c` | Aiguillage des requêtes |
+| `src/static.c` | Fichiers statiques (304, Range, gzip, cache, listes de dossiers) |
+| `src/response.c` | Construction des réponses et pages d'erreur |
+| `src/cache.c` | Cache mémoire LRU |
+| `src/crypto.c` | SHA-1, Base64, CRC-32, compression gzip |
+| `src/security.c` | Authentification Basic, limitation de débit |
+| `src/proxy.c` | Proxy inverse, répartition de charge, health checks |
+| `src/websocket.c` | WebSocket et rechargement automatique |
+| `src/metrics.c` | Statistiques `/__lith/status` et `/__lith/metrics` |
+| `src/config.c` | Lecture et validation de `lith.conf` |
+| `src/platform.c` | Tout ce qui dépend du système d'exploitation |
+| `src/logger.c`, `src/strbuf.c`, `src/daemon.c` | Journaux, chaînes extensibles, mode démon |
 
-### Cross-Platform Compatibility
-
-LITH must compile and behave consistently on:
-
-- Linux
-- macOS
-- Windows
-
-Platform-specific code must be protected using compile-time directives.
-
-```c
-#ifdef _WIN32
-    // Winsock2 implementation
-#else
-    // POSIX implementation
-#endif
-```
-
-Whenever possible, use the project's abstraction types (such as `socket_t`) instead of assuming platform-specific implementations.
-
----
-
-### Memory Safety
-
-Contributors should prioritize secure memory management.
-
-Guidelines include:
-
-- Prefer bounded functions such as `snprintf()` and `strncpy()`.
-- Validate all buffer boundaries before reading or writing.
-- Ensure HTTP parsing routines respect configured memory limits.
-- Free all dynamically allocated resources before thread termination.
-- Avoid introducing memory leaks.
+Chaque fichier `src/x.c` a son en-tête dans `include/`. Un nouveau fichier
+placé dans `src/` est compilé automatiquement par le `Makefile`.
 
 ---
 
-### Commit Message Guidelines
+## Règles techniques
 
-Write concise, descriptive commit messages using the imperative mood.
+### Portabilité
+LITH doit compiler **sans avertissement** (`-Wall -Wextra`) et fonctionner à
+l'identique sous Linux, macOS et Windows. Le code spécifique à un système va
+dans `src/platform.c`, protégé par `#ifdef _WIN32`. Ailleurs, utilisez les
+abstractions (`socket_t`, `lith_stat`, `lith_fopen`, `lith_send_all`...).
 
-**Good**
+### Zéro dépendance
+Aucune bibliothèque externe n'est ajoutée au cœur de LITH. Une fonctionnalité
+qui en exigerait une doit être **optionnelle** et activée à la compilation.
+
+### Sûreté mémoire
+- Fonctions bornées (`snprintf`, `memcpy` avec tailles vérifiées), jamais `strcpy`/`sprintf`.
+- Toute donnée venant du réseau est considérée comme hostile : validez les longueurs.
+- Chaque `malloc` a son `free`, y compris sur les chemins d'erreur.
+- Vérifiez avec `make DEBUG=1 && make test DEBUG=1` (AddressSanitizer/UBSan sous Linux/macOS).
+
+### Tests
+Toute nouvelle fonctionnalité est accompagnée de tests :
+- fonction pure (analyse, calcul) → `tests/unit_tests.c` ;
+- comportement réseau → `tests/integration.sh`.
+
+### Messages de commit
+Phrase courte à l'impératif décrivant le changement :
 
 ```text
-Fix memory alignment leak within dynamic client handler
+Ajoute la prise en charge de If-Range pour les requêtes partielles
 ```
 
-**Bad**
-
-```text
-Fixed a bug
-```
+et non : `correction`.
 
 ---
 
-## Reporting Issues
+## Signaler un problème
 
-If you discover a bug, crash, or security vulnerability, please open a GitHub Issue including:
+Ouvrez une *Issue* GitHub en indiquant :
+- système d'exploitation et compilateur ;
+- étapes pour reproduire ;
+- comportement attendu et comportement observé ;
+- journaux de LITH (lancez avec `LOG_LEVEL=debug` si possible) et sortie de `lith check`.
 
-- Operating system and compiler information
-- Steps to reproduce the issue
-- Expected behavior
-- Actual behavior
-- Relevant logs generated by the `lith_log` engine
+Pour une faille de sécurité, contactez FomaDev en privé avant toute publication.
 
 ---
 
 ## Questions
 
-For inquiries regarding commercial licensing, derivative rights, or enterprise usage, please contact the FomaDev maintenance team.
+Pour toute question sur l'architecture, la licence ou une collaboration
+commerciale, contactez directement Fordi (FomaDev).

@@ -1,26 +1,28 @@
-# Exécutables et dossiers de build
+# Compilation
 bin/
+build/
 obj/
-
-# Artefacts de compilation C
 *.o
 *.obj
 *.d
+*.res
+*.exe
+*.out
 
-# Fichiers locaux ou temporaires d'éditeurs
+# Exécution locale
+*.log
+*.pid
+
+# Éditeurs
 .vscode/
 .idea/
 *.swp
 *~
 
-# Logs
-*.log
-
-# Fichiers système
+# Système
 .DS_Store
+Thumbs.db
 
-*.exe
-
-*.out
-
-*.res
+# Module HTTPS (Rust) et certificats de test
+tls/target/
+*.pem

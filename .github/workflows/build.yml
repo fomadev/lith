@@ -7,127 +7,68 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
-    name: Build on ${{ matrix.local_name }}
+    name: Build on ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            local_name: Linux
-            asset_path: lith-linux.tar.gz
-          - os: windows-latest
-            local_name: Windows
-            asset_path: lith-windows.zip
+            name: Linux
+            archive: lith-linux-x64.tar.gz
           - os: macos-latest
-            local_name: Mac
-            asset_path: lith-mac.tar.gz
+            name: macOS
+            archive: lith-macos.tar.gz
+          - os: windows-latest
+            name: Windows
+            archive: lith-windows-x64.zip
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up GCC (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        install: mingw-w64-x86_64-gcc gcc make
+      - name: Set up MinGW-w64 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc make zip
 
-    - name: Compile LITH (Linux & Mac)
-      if: matrix.os != 'windows-latest'
-      run: |
-        mkdir -p bin
-        make
+      - name: Compile (Linux)
+        if: runner.os == 'Linux'
+        run: make STATIC=1 && make test
 
-    - name: Compile LITH (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: msys2 {0}
-      run: |
-        mkdir -p bin
-        make
+      - name: Compile (macOS)
+        if: runner.os == 'macOS'
+        run: make CC=clang && make test CC=clang
 
-    # Alignement de l'arborescence intermédiaire du build de test
-    - name: Prepare Workspace Folder Structure
-      shell: bash
-      run: |
-        mkdir -p dist/bin
-        mkdir -p dist/public
-        
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp bin/lith.exe dist/bin/lith.exe
-        else
-          cp bin/lith dist/bin/lith
-        fi
-        
-        if [ -f "lith.conf" ]; then cp lith.conf dist/lith.conf; fi
-        if [ -f "public/index.html" ]; then cp public/index.html dist/public/index.html; fi
+      - name: Compile (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: make STATIC=1 && make test
 
-    - name: Package Windows Artifact (.zip)
-      if: matrix.os == 'windows-latest'
-      shell: bash
-      run: |
-        cd dist
-        7z a ../lith-windows.zip bin/ public/ lith.conf
+      - name: Assemble package
+        shell: bash
+        run: |
+          mkdir -p dist/lith/bin dist/lith/public
+          cp bin/lith* dist/lith/bin/ && rm -f dist/lith/bin/unit_tests*
+          cp public/index.html dist/lith/public/
+          cp lith.conf README.md DOCUMENTATION.md CHANGELOG.md LICENSE dist/lith/
 
-    - name: Package Linux Artifact (.tar.gz)
-      if: matrix.os == 'ubuntu-latest'
-      shell: bash
-      run: |
-        cd dist
-        tar -czf ../lith-linux.tar.gz bin/ public/ lith.conf
+      - name: Archive (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: tar -czf ${{ matrix.archive }} -C dist lith
 
-    - name: Package Mac Artifact (.tar.gz)
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        cd dist
-        tar -czf ../lith-mac.tar.gz bin/ public/ lith.conf
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cd dist && zip -qr ../${{ matrix.archive }} lith
 
-    - name: Upload Intermediate Platform Artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.local_name }}-package
-        path: ${{ matrix.asset_path }}
-        retention-days: 1
-
-  bundle:
-    name: Bundle All Operational Binaries
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Create Consolidation Directory
-      run: mkdir -p bundle_payload
-
-    - name: Download Linux Binary Package
-      uses: actions/download-artifact@v4
-      with:
-        name: Linux-package
-        path: bundle_payload
-
-    - name: Download Windows Binary Package
-      uses: actions/download-artifact@v4
-      with:
-        name: Windows-package
-        path: bundle_payload
-
-    - name: Download Mac Binary Package
-      uses: actions/download-artifact@v4
-      with:
-        name: Mac-package
-        path: bundle_payload
-
-    - name: Zip All Distribution Packages
-      run: |
-        zip -j lith-distribution.zip bundle_payload/*
-
-    - name: Upload Final Consolidated Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: lith-release-packages
-        path: lith-distribution.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-package
+          path: ${{ matrix.archive }}
+          retention-days: 7

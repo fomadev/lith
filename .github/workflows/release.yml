@@ -1,4 +1,4 @@
-name: Release and Deploy LITH
+name: Release
 
 on:
   push:
@@ -7,100 +7,73 @@ on:
 
 jobs:
   release-assets:
-    name: Build and Publish Release Assets
+    name: Release ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    
     permissions:
       contents: write
-      
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
-            platform_suffix: linux-x64
-            extension: tar.gz
-          - os: windows-latest
-            platform_suffix: windows-x64
-            extension: zip
+            name: linux-x64
+            ext: tar.gz
           - os: macos-latest
-            platform_suffix: mac-x64
-            extension: tar.gz
+            name: macos
+            ext: tar.gz
+          - os: windows-latest
+            name: windows-x64
+            ext: zip
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up GCC (Windows)
-      if: matrix.os == 'windows-latest'
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        install: mingw-w64-x86_64-gcc gcc make
+      - name: Set up MinGW-w64 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc make zip
 
-    - name: Compile LITH (Linux & Mac)
-      if: matrix.os != 'windows-latest'
-      run: |
-        mkdir -p bin
-        make
+      - name: Compile (Linux)
+        if: runner.os == 'Linux'
+        run: make STATIC=1 && make test
 
-    - name: Compile LITH (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: msys2 {0}
-      run: |
-        mkdir -p bin
-        make
+      - name: Compile (macOS)
+        if: runner.os == 'macOS'
+        run: make CC=clang && make test CC=clang
 
-    - name: Get Version from Tag
-      id: get_version
-      shell: bash
-      run: |
-        echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      - name: Compile (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: make STATIC=1 && make test
 
-    # Génération de la structure demandée : bin/lith, public/index.html et lith.conf
-    - name: Prepare Workspace Structure
-      shell: bash
-      run: |
-        mkdir -p dist/bin
-        mkdir -p dist/public
-        
-        # Copie de l'exécutable dans dist/bin/
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp bin/lith.exe dist/bin/lith.exe
-        else
-          cp bin/lith dist/bin/lith
-        fi
-        
-        # Copie des fichiers d'accompagnement essentiels
-        if [ -f "lith.conf" ]; then cp lith.conf dist/lith.conf; fi
-        if [ -f "public/index.html" ]; then cp public/index.html dist/public/index.html; fi
+      - name: Assemble package
+        id: pkg
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          NAME="lith-${TAG}-${{ matrix.name }}"
+          mkdir -p "dist/$NAME/bin" "dist/$NAME/public"
+          cp bin/lith* "dist/$NAME/bin/" && rm -f "dist/$NAME/bin/unit_tests"*
+          cp public/index.html "dist/$NAME/public/"
+          cp lith.conf README.md DOCUMENTATION.md CHANGELOG.md LICENSE "dist/$NAME/"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-    - name: Package Windows Artifact
-      if: matrix.os == 'windows-latest'
-      shell: bash
-      run: |
-        cd dist
-        7z a ../lith-windows-${{ steps.get_version.outputs.TAG_NAME }}-x64.zip bin/ public/ lith.conf
+      - name: Archive (Linux / macOS)
+        if: runner.os != 'Windows'
+        run: tar -czf ${{ steps.pkg.outputs.name }}.tar.gz -C dist ${{ steps.pkg.outputs.name }}
 
-    - name: Package Linux Artifact
-      if: matrix.os == 'ubuntu-latest'
-      shell: bash
-      run: |
-        cd dist
-        tar -czf ../lith-linux-${{ steps.get_version.outputs.TAG_NAME }}-x64.tar.gz bin/ public/ lith.conf
+      - name: Archive (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cd dist && zip -qr ../${{ steps.pkg.outputs.name }}.zip ${{ steps.pkg.outputs.name }}
 
-    - name: Package Mac Artifact
-      if: matrix.os == 'macos-latest'
-      shell: bash
-      run: |
-        cd dist
-        tar -czf ../lith-mac-${{ steps.get_version.outputs.TAG_NAME }}-x64.tar.gz bin/ public/ lith.conf
-
-    - name: Upload Binary to GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: |
-          lith-*.zip
-          lith-*.tar.gz
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            lith-*.zip
+            lith-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,89 +1,58 @@
-/* * Copyright (c) 2026 Fordi / FomaDev. 
- * Licensed under FomaDev Public License.
- * See LICENSE file in the project root for full license information.
+/* Copyright (c) 2026 Fordima Inc. All rights reserved.
+ * Licensed under the Fordima Public License (FPL) v1.0.
+ * See the LICENSE file in the project root for full license information.
  */
 
-#ifndef SERVER_H
-#define SERVER_H
+/*
+ * server.h — Cœur du serveur : connexions, pool de threads, réponses HTTP.
+ */
 
-#ifdef _WIN32
-    #ifndef WIN32_LEAN_AND_MEAN
-    #define WIN32_LEAN_AND_MEAN
-    #endif
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    typedef SOCKET socket_t;
-#else
-    #include <sys/socket.h>
-    #include <sys/time.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <unistd.h>
-    typedef int socket_t;
-#endif
+#ifndef LITH_SERVER_H
+#define LITH_SERVER_H
 
-/* API de contrôle d'infrastructure - Mode Démon Linux */
-#ifndef _WIN32
-int lith_daemonize(const char *initial_cwd); // Mises à jour pour la gestion des chemins absolus
-#endif
-
-#include <pthread.h>
 #include <stdbool.h>
-#include "common.h" // Contient ServerConfig
-#include "cache.h"  // Intégration du module de cache
+#include <stddef.h>
+#include "platform.h"
+#include "http.h"
+#include "tls.h"
 
-#define DEFAULT_PORT 8090
-#define BACKLOG 10
-#define BUFFER_SIZE 4096
-
-/* ==============================================================================
- * CONTEXTES CLIENTS
- * ============================================================================== */
-
+/* Une connexion TCP cliente et l'état de la requête en cours. */
 typedef struct {
-    socket_t client_socket;
-    struct sockaddr_in client_address;
-} ClientContext;
+    LithStream   io;             /* socket + session TLS éventuelle (HTTPS) */
+    char         ip[64];
+    int          requests_served;
 
+    HttpRequest *req;            /* requête en cours (NULL si l'analyse a échoué) */
+    int          status;         /* code HTTP envoyé */
+    long long    bytes_sent;     /* octets de corps envoyés */
+    bool         headers_sent;
+    bool         keep_alive;     /* décidé au moment d'envoyer les en-têtes */
+    bool         force_close;    /* fermer après cette réponse */
+    bool         detached;       /* socket confiée à un autre thread (WebSocket) */
+} LithConn;
+
+static inline bool conn_is_https(const LithConn *c) { return lith_stream_is_tls(&c->io); }
+
+/* En-têtes supplémentaires d'une réponse. */
 typedef struct {
-    ClientContext base_ctx;
-    char public_dir[256];
-} ExpandedClientContext;
+    char   buf[4096];
+    size_t len;
+} RespHeaders;
 
-/* ==============================================================================
- * STRUCTURES DU THREAD POOL
- * ============================================================================== */
+void resp_init(RespHeaders *h);
+void resp_add(RespHeaders *h, const char *name, const char *fmt, ...) LITH_PRINTF(3, 4);
 
-typedef struct Node {
-    socket_t socket;
-    struct Node *next;
-} Node_t;
+/* content_length < 0 : pas de Content-Length (la connexion sera fermée après le corps). */
+int  resp_send_head(LithConn *c, int status, const RespHeaders *extra, long long content_length);
+int  resp_send_body(LithConn *c, const void *data, size_t len);
+int  resp_send(LithConn *c, int status, const char *content_type, const void *body, size_t len, const RespHeaders *extra);
+void resp_error(LithConn *c, int status, const char *detail);
+void resp_error_ex(LithConn *c, int status, const char *detail, const RespHeaders *extra);
 
-typedef struct {
-    Node_t *head;           // Premier élément de la file (extraction)
-    Node_t *tail;           // Dernier élément de la file (insertion)
-    int size;               // Nombre actuel de connexions en attente
-    pthread_mutex_t mutex;  // Mutex de protection de la file
-    pthread_cond_t cond;    // Variable de condition pour réveiller les workers
-    bool shutdown;          // Drapeau d'arrêt global du serveur
-    char public_dir[256];   // Copie locale du répertoire public pour les workers
-    LithCache ram_cache;    // Le cache rejoint le contexte des workers
-} ThreadPool_t;
+/* Cycle de vie */
+int  server_run(void);
+void server_request_stop(void);
+bool server_stopping(void);
+bool server_is_busy(void);
 
-/* ==============================================================================
- * PROTOTYPES ET CYCLE DE VIE
- * ============================================================================== */
-
-/* Cycle de vie du serveur réseau */
-int lith_init_server(const ServerConfig *config);
-void lith_start_server(int server_fd, const ServerConfig *config);
-
-/* Cœur du worker et traitement du protocole HTTP */
-void *lith_client_handler(void *arg);
-
-/* API de contrôle du Thread Pool */
-void thread_pool_init(ThreadPool_t *pool, int num_threads, const char *public_dir);
-void thread_pool_push(ThreadPool_t *pool, socket_t socket);
-void thread_pool_shutdown(ThreadPool_t *pool);
-
-#endif // SERVER_H
+#endif /* LITH_SERVER_H */
