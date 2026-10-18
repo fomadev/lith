@@ -71,10 +71,14 @@ Ses particularités :
 
 Il vaut mieux le savoir dès le début :
 
-- **HTTPS** (le cadenas dans le navigateur) n'est pas intégré dans la 1.0.0.
-  Pour un site public, on place LITH derrière un outil qui gère HTTPS
-  (Caddy, nginx, Cloudflare...). C'est expliqué pas à pas au
-  [chapitre 12](#124-ajouter-https-avec-caddy).
+- **HTTPS** (le cadenas dans le navigateur) est une **option de compilation** :
+  l'exécutable standard n'en contient pas (il reste sans aucune dépendance) ;
+  compilé avec `make TLS=1`, LITH sert directement `https://`. Autre solution :
+  placer LITH derrière un outil qui gère HTTPS (Caddy, nginx, Cloudflare...).
+  Les deux méthodes sont expliquées pas à pas au
+  [chapitre 12.4](#124-ajouter-https).
+- LITH **n'obtient pas** les certificats tout seul : vous les lui fournissez
+  (Let's Encrypt avec `certbot`, par exemple), ou vous laissez Caddy s'en charger.
 - LITH **n'exécute pas de code serveur** (PHP, Python...) lui-même. En revanche,
   il peut transmettre les requêtes à une application qui le fait (chapitre 10).
 - Il parle HTTP/1.0 et HTTP/1.1 (pas encore HTTP/2 ni HTTP/3). C'est largement
@@ -311,8 +315,24 @@ tout est correct :
 make test
 ```
 
-Vous devez voir `150 vérifications, 0 échec(s)` (le nombre peut augmenter
+Vous devez voir `168 vérifications, 0 échec(s)` (le nombre peut augmenter
 avec les versions).
+
+**Avec HTTPS (facultatif)** : il faut en plus [Rust](https://rustup.rs)
+(`cargo`), qui compile le petit module de chiffrement du dossier `tls/`
+(basé sur la bibliothèque rustls), puis :
+
+```bash
+make TLS=1
+make TLS=1 test
+```
+
+Sous Windows avec MinGW, ajoutez une fois pour toutes la cible Rust compatible
+avec gcc : `rustup target add x86_64-pc-windows-gnu` (avec MSYS2, installer
+`mingw-w64-x86_64-rust` suffit). La première compilation télécharge les
+dépendances Rust (versions figées par `tls/Cargo.lock`) et prend une à deux
+minutes ; les suivantes sont instantanées. L'exécutable passe d'environ 300 Ko
+à environ 1,5 Mo. Sans `TLS=1`, rien de tout cela n'intervient.
 
 ### 2.4 Avec Docker
 
@@ -607,6 +627,57 @@ PROXY=/api http://127.0.0.1:3000
 AUTH=/admin admin:un-mot-de-passe-long
 ```
 
+**Site public en HTTPS direct** (exécutable compilé avec `make TLS=1`, voir 5.10)
+
+```ini
+PORT=80
+TLS_PORT=443
+TLS_CERT=/etc/letsencrypt/live/monsite.fr/fullchain.pem
+TLS_KEY=/etc/letsencrypt/live/monsite.fr/privkey.pem
+TLS_REDIRECT=1
+HSTS=31536000
+```
+
+### 5.10 HTTPS (`make TLS=1`)
+
+Ces clés ne servent qu'avec un exécutable compilé avec `make TLS=1`
+(chapitre 2.3). Avec l'exécutable standard, `TLS_PORT` est **refusé** avec un
+message clair : LITH ne démarre jamais en clair alors que vous attendiez du
+chiffrement.
+
+| Clé | Défaut | Description |
+|-----|--------|-------------|
+| `TLS_PORT` | `0` | Port HTTPS (`443` en production, `8443` pour essayer). `0` = HTTPS désactivé. Le port HTTP (`PORT`) reste ouvert en parallèle et doit être différent |
+| `TLS_CERT` | *(vide)* | Certificat au format PEM, **chaîne complète** (votre certificat suivi des certificats intermédiaires : `fullchain.pem` chez Let's Encrypt) |
+| `TLS_KEY` | *(vide)* | Clé privée au format PEM (PKCS#8, RSA ou EC : `privkey.pem` chez Let's Encrypt). Protégez ce fichier (`chmod 600`) |
+| `TLS_REDIRECT` | `0` | `1` = le port HTTP répond par une redirection vers `https://` (`301` pour `GET`/`HEAD`, `308` pour les autres méthodes, qui conserve le corps). Restent en clair : `/__lith/health` (sondes, `lith health`) et `/.well-known/acme-challenge/` (validation Let's Encrypt) |
+| `HSTS` | `0` | Durée en secondes de l'en-tête `Strict-Transport-Security`, envoyé uniquement en HTTPS : le navigateur n'utilisera plus que HTTPS pour ce site pendant cette durée. Commencez petit (`300`), puis `31536000` (un an) une fois sûr de vous |
+
+Les chemins relatifs sont relatifs au dossier où l'on lance LITH (ils sont
+convertis en chemins absolus en mode démon). `lith check` charge réellement le
+certificat et la clé et signale tout problème (fichier absent, PEM illisible,
+clé qui ne correspond pas au certificat).
+
+Ce que fait LITH en HTTPS : TLS 1.3 et TLS 1.2 uniquement, suites de
+chiffrement modernes, annonce de HTTP/1.1 par ALPN, reprise de session. Tout le
+reste fonctionne à l'identique : fichiers, gzip, cache, `Range`, keep-alive,
+proxy (le backend reçoit `X-Forwarded-Proto: https`), live reload en `wss://`,
+statistiques. Les protections contre les clients lents s'appliquent aussi à la
+poignée de main TLS (`REQUEST_TIMEOUT`).
+
+Pour essayer en local avec un certificat auto-signé (le navigateur affichera un
+avertissement, c'est normal) :
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout key.pem -out cert.pem \
+  -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+printf 'TLS_PORT=8443\nTLS_CERT=cert.pem\nTLS_KEY=key.pem\n' >> lith.conf
+lith start          # puis https://localhost:8443
+```
+
+> 💡 Sous Git Bash (Windows), préfixez la commande `openssl` par
+> `MSYS_NO_PATHCONV=1` pour que `/CN=localhost` ne soit pas pris pour un chemin.
+
 ---
 
 ## Chapitre 6 — Servir un site web
@@ -885,16 +956,35 @@ l'emporte. `AUTH` protège aussi les routes du proxy.
 
 ### 8.7 HTTPS
 
-HTTPS chiffre les échanges (le cadenas du navigateur). Il est indispensable pour
-un site public. La 1.0.0 ne l'intègre pas ; la méthode recommandée consiste à
-placer devant LITH un outil qui gère les certificats automatiquement, comme
-**Caddy** (gratuit, une ligne de configuration). Voir le
-[chapitre 12.4](#124-ajouter-https-avec-caddy). L'intégration directe de HTTPS
-est la priorité de la prochaine étape (chapitre 16).
+HTTPS chiffre les échanges (le cadenas du navigateur) et prouve au visiteur
+qu'il parle bien à votre site. Il est indispensable pour un site public, et
+obligatoire dès qu'il y a un mot de passe (`AUTH`) ou un formulaire. Deux
+possibilités :
+
+- **HTTPS intégré** : compilez LITH avec `make TLS=1`, puis indiquez
+  `TLS_PORT`, `TLS_CERT` et `TLS_KEY` (chapitre 5.10). Le chiffrement est
+  confié à un petit module écrit en Rust avec la bibliothèque **rustls**, sûre
+  en mémoire et auditée (chapitre 16.4) ; le reste de LITH ne change pas.
+- **HTTPS devant LITH** : un outil comme **Caddy** obtient et renouvelle les
+  certificats tout seul, et transmet les requêtes à LITH en local.
+
+Le pas-à-pas des deux méthodes est au [chapitre 12.4](#124-ajouter-https).
+
+Une fois HTTPS en place :
+
+- `TLS_REDIRECT=1` renvoie automatiquement les visiteurs de `http://` vers
+  `https://` ;
+- `HSTS` demande au navigateur de ne plus jamais revenir en clair. Attention :
+  le navigateur s'en souvient pendant toute la durée indiquée, même si vous
+  retirez HTTPS ensuite. Testez d'abord avec une petite valeur (`HSTS=300`).
+
+LITH n'accepte que TLS 1.2 et TLS 1.3 : les navigateurs de plus de dix ans environ
+(Internet Explorer 10 et antérieurs, Android 4.x) ne pourront pas se connecter.
 
 ### 8.8 Liste de contrôle avant de publier un site
 
-- [ ] HTTPS en place devant LITH (Caddy, nginx, Cloudflare...).
+- [ ] HTTPS en place : `make TLS=1` + `TLS_PORT`, ou un proxy devant LITH (Caddy, nginx, Cloudflare...).
+- [ ] `TLS_REDIRECT=1`, puis `HSTS` une fois HTTPS validé ; clé privée lisible par LITH seulement.
 - [ ] `HIDE_DOTFILES=1` et aucun fichier secret dans `public/`.
 - [ ] Mots de passe `AUTH` / `STATUS_AUTH` longs et uniques, `lith.conf` protégé.
 - [ ] `RATE_LIMIT` réglé (dans LITH ou dans le proxy de devant).
@@ -1027,9 +1117,14 @@ visiteur :
 | `X-Forwarded-For` | Adresse IP du visiteur (ajoutée à la liste existante) |
 | `X-Real-IP` | Adresse IP du visiteur |
 | `X-Forwarded-Host` | Le `Host` demandé par le visiteur |
-| `X-Forwarded-Proto` | `http` |
+| `X-Forwarded-Proto` | `https` si le visiteur est arrivé sur `TLS_PORT`, sinon `http` |
 
-L'en-tête `Host` d'origine est conservé.
+L'en-tête `Host` d'origine est conservé. Les en-têtes `X-Forwarded-*` et
+`X-Real-IP` envoyés par le visiteur lui-même sont remplacés (sauf
+`X-Forwarded-For`, complété) : l'application peut donc se fier à
+`X-Forwarded-Proto` pour savoir si la connexion était chiffrée (cookies
+`Secure`, liens absolus...). La liaison LITH → backend reste en HTTP clair :
+gardez vos backends sur `127.0.0.1` ou sur un réseau privé.
 
 ### 10.5 Plusieurs routes
 
@@ -1145,7 +1240,7 @@ scrape_configs:
 
 | Situation | Solution conseillée |
 |-----------|---------------------|
-| Un serveur Linux (VPS, Raspberry Pi) | **systemd** (12.3) + **Caddy** pour HTTPS (12.4) |
+| Un serveur Linux (VPS, Raspberry Pi) | **systemd** (12.3) + HTTPS intégré (`make TLS=1`) ou **Caddy** (12.4) |
 | Une plateforme à conteneurs (Docker, Kubernetes, Cloud Run...) | **Docker** (12.5) |
 | Test rapide sur un serveur Linux | `lith start -d` / `lith stop` (12.2) |
 | Windows | Planificateur de tâches (12.6) |
@@ -1202,11 +1297,73 @@ journalctl -u lith -f                # journal en direct
 sudo systemctl restart lith          # après une modification de lith.conf
 ```
 
-### 12.4 Ajouter HTTPS avec Caddy
+### 12.4 Ajouter HTTPS
+
+Prérequis communs : un nom de domaine qui pointe vers votre serveur, et les
+ports 80 et 443 ouverts. Deux méthodes ; la première garde un seul programme,
+la seconde automatise complètement les certificats.
+
+#### Méthode A : HTTPS intégré à LITH (`make TLS=1`) + Let's Encrypt
+
+1. Compilez et installez LITH avec HTTPS (chapitre 2.3) :
+
+   ```bash
+   make TLS=1 && sudo install -m 755 bin/lith /usr/local/bin/lith
+   ```
+
+2. Démarrez d'abord LITH **en HTTP seul** sur le port 80 (service systemd du
+   12.3, avec `PORT=80`) : il faut un site joignable pour obtenir le premier
+   certificat.
+
+3. Obtenez le certificat avec [certbot](https://certbot.eff.org) en mode
+   *webroot* : certbot dépose un fichier dans `public/.well-known/acme-challenge/`,
+   que LITH sert (ce dossier n'est jamais caché, ni redirigé vers HTTPS).
+
+   ```bash
+   sudo certbot certonly --webroot -w /srv/mon-site/public -d monsite.fr
+   ```
+
+4. Les fichiers de `/etc/letsencrypt/live/` ne sont lisibles que par `root`.
+   Copiez-les pour l'utilisateur de LITH, à chaque renouvellement, avec un
+   petit script `/etc/letsencrypt/renewal-hooks/deploy/lith.sh` (rendez-le
+   exécutable avec `chmod +x`) :
+
+   ```bash
+   #!/bin/sh
+   install -d -o www-data -m 700 /etc/lith
+   install -o www-data -m 600 "$RENEWED_LINEAGE/fullchain.pem" "$RENEWED_LINEAGE/privkey.pem" /etc/lith/
+   systemctl restart lith      # LITH relit le certificat au démarrage
+   ```
+
+   Lancez-le une première fois à la main :
+   `sudo RENEWED_LINEAGE=/etc/letsencrypt/live/monsite.fr sh /etc/letsencrypt/renewal-hooks/deploy/lith.sh`.
+
+5. Activez HTTPS dans `lith.conf`, vérifiez, redémarrez :
+
+   ```ini
+   PORT=80
+   TLS_PORT=443
+   TLS_CERT=/etc/lith/fullchain.pem
+   TLS_KEY=/etc/lith/privkey.pem
+   TLS_REDIRECT=1
+   HSTS=300            # passez à 31536000 quand tout fonctionne
+   ```
+
+   ```bash
+   lith check && sudo systemctl restart lith
+   ```
+
+Votre site répond en `https://monsite.fr` ; `http://monsite.fr` y redirige.
+certbot renouvelle le certificat automatiquement et le script ci-dessus
+redémarre LITH (quelques millisecondes d'interruption). La ligne
+`AmbientCapabilities=CAP_NET_BIND_SERVICE` du 12.3 autorise les ports 80 et 443
+sans `root`.
+
+#### Méthode B : Caddy devant LITH
 
 [Caddy](https://caddyserver.com) obtient et renouvelle automatiquement des
-certificats HTTPS gratuits (Let's Encrypt). Prérequis : un nom de domaine qui
-pointe vers votre serveur, et les ports 80 et 443 ouverts.
+certificats HTTPS gratuits (Let's Encrypt), sans aucun script. LITH peut alors
+rester compilé sans TLS.
 
 1. Configurez LITH pour n'écouter qu'en local :
 
@@ -1257,6 +1414,10 @@ Dans le conteneur : la configuration est `/lith.conf`, le site `/srv/public`
 (voir `docker/lith.conf`). LITH y tourne sans privilèges (utilisateur 65534),
 s'arrête proprement avec `docker stop`, et une sonde **HEALTHCHECK** (`lith health`)
 indique son état dans `docker ps`.
+
+L'image est compilée **sans HTTPS** pour rester minuscule : sur une plateforme à
+conteneurs, le chiffrement est en général assuré par l'*ingress* ou le
+répartiteur de charge devant le conteneur.
 
 **docker-compose.yml** :
 
@@ -1311,7 +1472,7 @@ pour utiliser LITH.
 ```text
                     ┌──────────────────────── processus lith ────────────────────────┐
                     │                                                                 │
-  connexions TCP ──▶│ thread principal : accept()                                      │
+  connexions TCP ──▶│ thread principal : accept() sur PORT (et TLS_PORT si HTTPS)      │
                     │        │                                                        │
                     │        ▼                                                        │
                     │  file d'attente FIFO (bornée par MAX_PENDING)                    │
@@ -1335,7 +1496,9 @@ pour utiliser LITH.
 1. **Accept** : le thread principal attend les connexions (`select()` avec un
    délai de 500 ms pour pouvoir s'arrêter proprement), récupère l'adresse IP du
    client et place la connexion dans la file d'attente.
-2. **Prise en charge** : un thread de travail libre la retire de la file.
+2. **Prise en charge** : un thread de travail libre la retire de la file. Si
+   elle arrive sur `TLS_PORT`, une session TLS est créée ; la poignée de main se
+   déroule pendant la lecture de la première requête, sous les mêmes délais.
 3. **Lecture des en-têtes** : le thread lit jusqu'à trouver la ligne vide
    (`\r\n\r\n`), dans un tampon de 16 Ko maximum, en surveillant les délais.
 4. **Analyse** (`http_parser.c`) : ligne de requête, en-têtes, décodage du
@@ -1358,7 +1521,9 @@ pour utiliser LITH.
 | Module | Responsabilité |
 |--------|----------------|
 | `platform.c` | Seul fichier qui connaît les différences Windows/POSIX : sockets, fichiers en UTF-8, temps, mémoire |
-| `server.c` | Écoute, pool de threads, boucle de connexion, arrêt propre |
+| `server.c` | Écoute (HTTP et HTTPS), pool de threads, boucle de connexion, arrêt propre |
+| `tls.c` | E/S d'une connexion (`LithStream`) : socket directe, ou passage par le module TLS si la connexion est chiffrée |
+| `tls/` (Rust) | Module HTTPS optionnel (`make TLS=1`) : rustls derrière une petite API C (`tls/lith_tls.h`) |
 | `http_parser.c` | Analyse HTTP, types MIME, dates HTTP, plages `Range`, sécurité des chemins |
 | `router.c` | Aiguillage et routes internes |
 | `static.c` | Fichiers : 304, Range, cache, gzip, envoi par blocs / `sendfile`, liste de dossiers, SPA |
@@ -1377,6 +1542,13 @@ pour utiliser LITH.
   le code reste simple, lisible et identique sur les trois systèmes. Le nombre
   de threads est élevé par défaut (les threads inactifs ne coûtent presque rien)
   et LITH libère les connexions inactives quand des clients attendent.
+- **Un module TLS qui ne touche jamais au réseau** : le code Rust reçoit les
+  octets lus par LITH (`rtls_feed`), rend le texte clair (`rtls_read`), chiffre
+  les réponses (`rtls_write`) et donne les octets à envoyer
+  (`rtls_take_output`). Les sockets, délais, keep-alive et protections
+  anti-slowloris restent ceux du code C, identiques en HTTP et en HTTPS. En
+  HTTPS, `sendfile` (zéro copie) est remplacé par l'envoi par blocs, puisque
+  les données doivent être chiffrées.
 - **Un cache à compteur de références** : un thread qui envoie un fichier à un
   client lent ne bloque jamais les autres, et un fichier peut être remplacé ou
   évincé pendant qu'il est envoyé sans risque.
@@ -1417,9 +1589,11 @@ pour utiliser LITH.
 | `make integration` | Lance les tests d'intégration (bash + curl) |
 | `make DEBUG=1` | Compilation de débogage, avec AddressSanitizer et UBSan (hors Windows) |
 | `make STATIC=1` | Exécutable statique (aucune bibliothèque partagée requise) |
+| `make TLS=1` | Ajoute HTTPS (module Rust `tls/`, demande `cargo`). À répéter sur chaque commande : `make TLS=1 test`, `make TLS=1 integration` |
 | `make CFLAGS="-O3 -march=native"` | Options de compilation personnalisées |
 | `make install` / `make uninstall` | Installe / retire `lith` dans `$(PREFIX)/bin` (défaut `/usr/local`) |
 | `make clean` | Supprime `build/` et `bin/` |
+| `make distclean` | Supprime aussi la compilation Rust (`tls/target/`) |
 
 ### 14.2 Les tests
 
@@ -1433,10 +1607,17 @@ pour utiliser LITH.
   slowloris, proxy avec panne de backend, WebSocket, statistiques. Sous
   Linux/macOS, s'y ajoutent l'arrêt par `SIGTERM`, le mode démon, l'absence de
   fuite de descripteurs et un test de charge ApacheBench.
+- **Tests HTTPS** (dans `tests/integration.sh`) : avec un exécutable `make TLS=1`,
+  un certificat auto-signé jetable est généré avec `openssl` dans un dossier
+  temporaire (jamais dans le dépôt), puis sont vérifiés : certificat, ALPN,
+  TLS 1.2/1.3, HSTS, redirections `TLS_REDIRECT`, fichiers, Range, gzip, POST,
+  keep-alive, proxy, WebSocket `wss://`, refus du HTTP en clair et coupure des
+  poignées de main trop lentes. Avec l'exécutable standard, le script vérifie
+  que `TLS_PORT` est refusé avec un message clair.
 
 L'intégration continue (GitHub Actions) exécute tout cela sous Linux (dont une
-passe sous sanitizers), macOS et Windows, et construit l'image Docker, à chaque
-`push`.
+passe sous sanitizers, avec et sans HTTPS), macOS et Windows (avec et sans
+HTTPS), et construit l'image Docker, à chaque `push`.
 
 ### 14.3 Ajouter une fonctionnalité
 
@@ -1501,8 +1682,28 @@ configuration réellement utilisée.
 **LITH est-il assez solide pour la production ?**
 Oui pour servir des sites et des applications de taille raisonnable : il est
 testé automatiquement (dont sous sanitizers mémoire), protège contre les
-attaques courantes et s'arrête proprement. Pour un site public, placez-le
-derrière HTTPS (12.4).
+attaques courantes et s'arrête proprement. Pour un site public, activez HTTPS
+(`make TLS=1`, ou un proxy devant : 12.4).
+
+**`lith check` dit « compilé sans HTTPS ».**
+Votre exécutable a été compilé sans l'option HTTPS. Recompilez avec
+`make TLS=1` (chapitre 2.3), ou retirez `TLS_PORT` de `lith.conf`.
+
+**HTTPS : « certificat illisible » ou « le certificat et la clé ne correspondent pas ».**
+`TLS_CERT` doit contenir le certificat au format PEM (texte commençant par
+`-----BEGIN CERTIFICATE-----`), de préférence la chaîne complète
+(`fullchain.pem`) ; `TLS_KEY` la clé privée qui va avec (`privkey.pem`). Un
+fichier `.pfx`/`.p12` (Windows) se convertit avec
+`openssl pkcs12 -in site.pfx -nokeys -out cert.pem` et
+`openssl pkcs12 -in site.pfx -nocerts -nodes -out key.pem`.
+
+**HTTPS : le navigateur affiche « Votre connexion n'est pas privée ».**
+Normal avec un certificat auto-signé (tests en local) : le navigateur ne le
+connaît pas. En production, utilisez un certificat d'une autorité reconnue
+(Let's Encrypt, gratuit : 12.4). Si l'avertissement parle de nom, le domaine
+demandé ne figure pas dans le certificat. Si le site ne se charge pas du tout,
+vérifiez que vous utilisez bien `https://` avec `TLS_PORT` (un `http://` sur le
+port HTTPS est refusé).
 
 **Puis-je exécuter du PHP ?**
 Pas directement. Lancez PHP avec son serveur intégré ou PHP-FPM derrière un
@@ -1536,14 +1737,19 @@ et suivra désormais le versionnage sémantique (`MAJEUR.MINEUR.CORRECTIF`).
 | Zero-copy (`sendfile`) | ✅ sous Linux |
 | Conteneurisation | ✅ image `scratch` ≈ 330 Ko + health check |
 
+**Livré depuis** : **HTTPS natif** (option `make TLS=1`, module Rust + rustls,
+voir 16.4), avec redirection HTTP → HTTPS et HSTS.
+
 ### 16.2 Les prochaines étapes recommandées
 
 Par ordre de priorité (valeur pour les utilisateurs / effort) :
 
-1. **HTTPS natif (TLS)** — la fonctionnalité la plus attendue. Optionnelle à la
-   compilation, pour garder un cœur sans dépendance (voir 16.4 pour le choix
-   de la technologie).
-2. **Rechargement de la configuration à chaud** (`SIGHUP`) sans couper les connexions.
+1. ~~**HTTPS natif (TLS)**~~ — ✅ livré (`make TLS=1`). Suites possibles :
+   obtention automatique des certificats (ACME / Let's Encrypt intégré),
+   plusieurs certificats selon le nom de domaine (SNI), backends `https://`
+   pour le proxy, HTTPS dans l'image Docker et les exécutables publiés.
+2. **Rechargement de la configuration à chaud** (`SIGHUP`) sans couper les
+   connexions, y compris le rechargement du certificat après renouvellement.
 3. **Redirections et réécritures** configurables (`REDIRECT=/ancien /nouveau 301`),
    puis routage par motifs.
 4. **Améliorations du proxy** : réutilisation des connexions vers les backends,
@@ -1595,27 +1801,37 @@ certificats sont les parties les plus délicates et les plus exposées d'un
 serveur ; c'est là qu'une faille mémoire coûte le plus cher. La bibliothèque
 Rust **rustls** est moderne, sûre en mémoire et a fait l'objet d'audits.
 
-Architecture proposée :
+C'est ce qui a été mis en œuvre :
 
 ```text
-   LITH (C11)  ──── API C minimale (FFI) ────▶  lith-tls (Rust + rustls)
+   LITH (C11)  ──── API C minimale (FFI) ────▶  lith_tls (Rust + rustls)
    - serveur, HTTP, fichiers, proxy            - poignée de main TLS
-   - inchangé                                  - chiffrement / déchiffrement
-                                               - chargement des certificats
+   - sockets, délais, keep-alive               - chiffrement / déchiffrement
+   - tls.c : LithStream (clair ou TLS)         - chargement des certificats
 ```
 
-- Un petit dossier `tls/` contenant une bibliothèque Rust compilée en
-  bibliothèque statique (`crate-type = ["staticlib"]`), qui expose quelques
-  fonctions C : créer un contexte avec un certificat, accepter une connexion,
-  lire, écrire, fermer.
+- Le dossier `tls/` contient une bibliothèque Rust compilée en bibliothèque
+  statique (`crate-type = ["staticlib"]`, moins de 300 lignes), qui expose une
+  douzaine de fonctions C déclarées dans `tls/lith_tls.h` : créer un contexte
+  avec un certificat et une clé (`rtls_config_new`), accepter une connexion
+  (`rtls_accept`), lire (`rtls_feed` + `rtls_read`), écrire (`rtls_write` +
+  `rtls_take_output`), fermer (`rtls_close`).
+- L'API fonctionne « à tampons » : Rust ne voit jamais la socket. Le C garde la
+  main sur le réseau, donc sur les délais et les protections ; aucune
+  différence de comportement entre HTTP et HTTPS en dehors du chiffrement.
+- Le fournisseur cryptographique est **ring** (pas besoin de cmake ni de nasm),
+  la panique Rust est réglée sur `abort` et aucune fonction ne panique au
+  travers de la frontière C. Les versions des dépendances sont figées par
+  `tls/Cargo.lock` et la compilation utilise `--locked`.
 - Activé uniquement avec `make TLS=1` : sans cette option, LITH reste 100 % C,
-  sans dépendance, exactement comme aujourd'hui.
-- `platform.c`/`server.c` remplacent `recv`/`send` par les fonctions TLS quand
-  une connexion est chiffrée ; le reste du code ne change pas.
+  sans dépendance, exactement comme avant ; `tls.c` se réduit alors à des
+  appels directs à `recv`/`send`.
 
-Alternative si vous ne voulez pas maintenir de chaîne Rust : **mbedTLS** (C,
-léger, conçu pour l'embarqué), avec la même option `make TLS=1`. C'est plus
-simple à intégrer, mais rustls offre une meilleure garantie de sûreté mémoire.
+Alternative écartée : **mbedTLS** (C, léger, conçu pour l'embarqué). Plus simple
+à intégrer sans chaîne Rust, mais il aurait ajouté du C à la partie la plus
+exposée du serveur ; rustls offre une meilleure garantie de sûreté mémoire. La
+séparation par `tls.c` permettrait néanmoins d'ajouter un second module
+(mbedTLS) pour des cibles où Rust n'est pas disponible.
 
 En résumé : **C pour le cœur (léger, portable, déjà solide), Rust en module
 optionnel pour HTTPS (là où la sûreté mémoire compte le plus)**. Une réécriture
@@ -1684,6 +1900,12 @@ AUTH=/admin admin:motdepasse
 PROXY=/api http://127.0.0.1:3000
 STATUS_AUTH=admin:motdepasse
 LOG_FILE=lith.log
+# HTTPS (exécutable compilé avec : make TLS=1)
+TLS_PORT=443
+TLS_CERT=fullchain.pem
+TLS_KEY=privkey.pem
+TLS_REDIRECT=1
+HSTS=31536000
 ```
 
 | Adresse | Rôle |
@@ -1702,8 +1924,9 @@ LOG_FILE=lith.log
 | 200 | OK | Fichier envoyé |
 | 204 | No Content | Réponse à `OPTIONS` |
 | 206 | Partial Content | Morceau de fichier (`Range`) |
-| 301 | Moved Permanently | `/dossier` → `/dossier/` |
+| 301 | Moved Permanently | `/dossier` → `/dossier/` ; `http://` → `https://` (`TLS_REDIRECT`, `GET`/`HEAD`) |
 | 304 | Not Modified | Le navigateur a déjà la bonne version |
+| 308 | Permanent Redirect | `http://` → `https://` pour `POST`, `PUT`... (`TLS_REDIRECT`) |
 | 400 | Bad Request | Requête mal formée, `Host` manquant, chemin invalide |
 | 401 | Unauthorized | Mot de passe requis (`AUTH`, `STATUS_AUTH`) |
 | 403 | Forbidden | Tentative de sortir du dossier public ; statut demandé à distance |

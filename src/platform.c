@@ -122,6 +122,14 @@ bool lith_last_error_is_timeout(void) {
 #endif
 }
 
+void lith_set_last_error(bool timeout) {
+#ifdef _WIN32
+    WSASetLastError(timeout ? WSAETIMEDOUT : WSAECONNRESET);
+#else
+    errno = timeout ? EAGAIN : ECONNRESET;
+#endif
+}
+
 static void set_nonblocking(socket_t s, bool on) {
 #ifdef _WIN32
     u_long mode = on ? 1 : 0;

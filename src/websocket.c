@@ -56,7 +56,7 @@ bool ws_compute_accept(const char *key, char *out, size_t out_size) {
     return lith_base64_encode(digest, 20, out, out_size) > 0;
 }
 
-int ws_send_frame(socket_t s, int opcode, const void *data, size_t len) {
+int ws_send_frame(LithStream *s, int opcode, const void *data, size_t len) {
     unsigned char hdr[10];
     size_t hl = 0;
     hdr[hl++] = (unsigned char)(0x80 | (opcode & 0x0F));
@@ -70,17 +70,17 @@ int ws_send_frame(socket_t s, int opcode, const void *data, size_t len) {
         hdr[hl++] = 127;
         for (int i = 7; i >= 0; i--) hdr[hl++] = (unsigned char)((uint64_t)len >> (8 * i));
     }
-    if (lith_send_all(s, hdr, hl) != 0) return -1;
-    if (len && lith_send_all(s, data, len) != 0) return -1;
+    if (lith_stream_send_all(s, hdr, hl) != 0) return -1;
+    if (len && lith_stream_send_all(s, data, len) != 0) return -1;
     return 0;
 }
 
 /* Lit exactement n octets. Retourne 1 = ok, 0 = délai dépassé sans rien lire, -1 = fermé/erreur. */
-static int recv_exact(socket_t s, unsigned char *buf, size_t n, bool allow_idle_timeout) {
+static int recv_exact(LithStream *s, unsigned char *buf, size_t n, bool allow_idle_timeout) {
     size_t got = 0;
     int retries = 0;
     while (got < n) {
-        long r = lith_recv(s, buf + got, n - got);
+        long r = lith_stream_recv(s, buf + got, n - got);
         if (r > 0) { got += (size_t)r; continue; }
         if (r < 0 && lith_last_error_is_timeout()) {
             if (got == 0 && allow_idle_timeout) return 0;
@@ -93,11 +93,10 @@ static int recv_exact(socket_t s, unsigned char *buf, size_t n, bool allow_idle_
 }
 
 static void *ws_livereload_thread(void *arg) {
-    socket_t s = *(socket_t *)arg;
-    free(arg);
+    LithStream *s = (LithStream *)arg;
     unsigned seen = atomic_load(&g_reload_generation);
-    lith_socket_set_recv_timeout(s, 1000);
-    lith_socket_set_send_timeout(s, 5000);
+    lith_socket_set_recv_timeout(s->sock, 1000);
+    lith_socket_set_send_timeout(s->sock, 5000);
     unsigned char *payload = (unsigned char *)malloc(WS_MAX_PAYLOAD);
 
     while (payload) {
@@ -151,7 +150,8 @@ static void *ws_livereload_thread(void *arg) {
     }
 
     free(payload);
-    lith_socket_close(s);
+    lith_stream_close(s, false);
+    free(s);
     atomic_fetch_sub(&g_ws_clients, 1);
     lith_log(LOG_DEBUG, "Live reload : client déconnecté (%d actif(s))", atomic_load(&g_ws_clients));
     return NULL;
@@ -188,14 +188,14 @@ void livereload_handle(LithConn *c, HttpRequest *req) {
         return;
     }
 
-    socket_t *arg = (socket_t *)malloc(sizeof(socket_t));
+    LithStream *arg = (LithStream *)malloc(sizeof(LithStream));
     pthread_t th;
     if (!arg) {
         atomic_fetch_sub(&g_ws_clients, 1);
         c->force_close = true;
         return;
     }
-    *arg = c->sock;
+    *arg = c->io;   /* la session TLS éventuelle suit la socket */
     if (pthread_create(&th, NULL, ws_livereload_thread, arg) != 0) {
         free(arg);
         atomic_fetch_sub(&g_ws_clients, 1);

@@ -79,13 +79,13 @@ static int stream_file(LithConn *c, FILE *f, int64_t offset, int64_t length) {
     if (length <= 0) return 0;
 
 #ifdef __linux__
-    {
+    if (!conn_is_https(c)) {   /* sendfile() envoie le fichier brut : seulement en clair */
         int fd = fileno(f);
         off_t off = (off_t)offset;
         int64_t left = length;
         while (left > 0) {
             size_t chunk = left > (1 << 30) ? (size_t)(1 << 30) : (size_t)left;
-            ssize_t n = sendfile(c->sock, fd, &off, chunk);
+            ssize_t n = sendfile(c->io.sock, fd, &off, chunk);
             if (n < 0 && errno == EINTR) continue;
             if (n <= 0) { c->force_close = true; return -1; }
             left -= n;
@@ -93,7 +93,7 @@ static int stream_file(LithConn *c, FILE *f, int64_t offset, int64_t length) {
         }
         return 0;
     }
-#else
+#endif
     if (lith_fseek64(f, offset) != 0) { c->force_close = true; return -1; }
     char *buf = (char *)malloc(STREAM_CHUNK);
     if (!buf) { c->force_close = true; return -1; }
@@ -108,7 +108,6 @@ static int stream_file(LithConn *c, FILE *f, int64_t offset, int64_t length) {
     }
     free(buf);
     return rc;
-#endif
 }
 
 static unsigned char *read_whole_file(const char *path, int64_t size, size_t *out_len) {

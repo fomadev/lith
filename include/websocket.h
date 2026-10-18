@@ -21,7 +21,7 @@ bool ws_is_upgrade_request(const HttpRequest *req);
 /* Calcule Sec-WebSocket-Accept à partir de Sec-WebSocket-Key (out >= 29 octets). */
 bool ws_compute_accept(const char *key, char *out, size_t out_size);
 /* Envoie une trame serveur -> client (non masquée). */
-int  ws_send_frame(socket_t s, int opcode, const void *data, size_t len);
+int  ws_send_frame(LithStream *s, int opcode, const void *data, size_t len);
 
 /* Rechargement automatique */
 void livereload_start(void);          /* lance la surveillance du dossier public */

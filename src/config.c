@@ -4,6 +4,7 @@
  */
 
 #include "config.h"
+#include "tls.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -243,6 +244,18 @@ bool config_apply(LithConfig *cfg, const char *key, const char *value_in, char *
     } else if (!strcasecmp(key, "MAX_BODY_SIZE")) {
         if (!config_parse_size(value, &cfg->max_body_size)) BAD("MAX_BODY_SIZE invalide (ex: 10M)");
     }
+    /* HTTPS */
+    else if (!strcasecmp(key, "TLS_PORT")) {
+        if (!parse_int(value, 0, 65535, &cfg->tls_port)) BAD("TLS_PORT doit être un nombre entre 0 (désactivé) et 65535");
+    } else if (!strcasecmp(key, "TLS_CERT")) {
+        if (!copy_str(cfg->tls_cert, sizeof(cfg->tls_cert), value)) BAD("TLS_CERT trop long");
+    } else if (!strcasecmp(key, "TLS_KEY")) {
+        if (!copy_str(cfg->tls_key, sizeof(cfg->tls_key), value)) BAD("TLS_KEY trop long");
+    } else if (!strcasecmp(key, "TLS_REDIRECT")) {
+        if (!config_parse_bool(value, &cfg->tls_redirect)) BAD("TLS_REDIRECT attend 0 ou 1");
+    } else if (!strcasecmp(key, "HSTS")) {
+        if (!parse_int(value, 0, 2147483647, &cfg->hsts)) BAD("HSTS attend une durée en secondes (0 = désactivé, ex: 31536000)");
+    }
     /* Fichiers */
     else if (!strcasecmp(key, "PUBLIC_DIR")) {
         if (!value[0] || !copy_str(cfg->public_dir, sizeof(cfg->public_dir), value)) BAD("PUBLIC_DIR invalide");
@@ -364,6 +377,26 @@ int config_validate(LithConfig *cfg) {
         lith_log(LOG_ERROR, "Le dossier public '%s' est introuvable. Créez-le ou corrigez PUBLIC_DIR (astuce : `lith init`).", cfg->public_dir);
         errors++;
     }
+    if (cfg->tls_port > 0) {
+        char err[512];
+        if (!tls_compiled()) {
+            lith_log(LOG_ERROR, "TLS_PORT=%d : cet exécutable a été compilé sans HTTPS. Recompilez avec `make TLS=1`.", cfg->tls_port);
+            errors++;
+        } else if (!cfg->tls_cert[0] || !cfg->tls_key[0]) {
+            lith_log(LOG_ERROR, "TLS_PORT=%d : indiquez le certificat (TLS_CERT) et la clé privée (TLS_KEY).", cfg->tls_port);
+            errors++;
+        } else if (!tls_check_files(cfg->tls_cert, cfg->tls_key, err, sizeof(err))) {
+            lith_log(LOG_ERROR, "HTTPS : %s", err);
+            errors++;
+        }
+        if (cfg->tls_port == cfg->port) {
+            lith_log(LOG_ERROR, "PORT et TLS_PORT doivent être différents (%d)", cfg->port);
+            errors++;
+        }
+    } else if (cfg->tls_redirect) {
+        lith_log(LOG_WARN, "TLS_REDIRECT ignoré : HTTPS n'est pas activé (TLS_PORT=0).");
+        cfg->tls_redirect = false;
+    }
     if (cfg->cache_file_max > cfg->cache_max_size) cfg->cache_file_max = cfg->cache_max_size;
     if (cfg->rate_limit > 0 && cfg->rate_burst < cfg->rate_limit) cfg->rate_burst = cfg->rate_limit * 2;
     for (int i = 0; i < cfg->proxy_count; i++) {
@@ -388,6 +421,14 @@ void config_print(const LithConfig *c) {
     printf("  KEEPALIVE_MAX         = %d\n", c->keepalive_max);
     printf("  REQUEST_TIMEOUT       = %d s\n", c->request_timeout);
     printf("  MAX_BODY_SIZE         = %lld octets\n", c->max_body_size);
+    printf("  TLS_PORT              = %d%s\n", c->tls_port,
+           c->tls_port ? "" : (tls_compiled() ? " (HTTPS désactivé)" : " (exécutable compilé sans HTTPS : make TLS=1)"));
+    if (c->tls_port) {
+        printf("  TLS_CERT              = %s\n", c->tls_cert[0] ? c->tls_cert : "(manquant)");
+        printf("  TLS_KEY               = %s\n", c->tls_key[0] ? c->tls_key : "(manquante)");
+        printf("  TLS_REDIRECT          = %d\n", c->tls_redirect);
+        printf("  HSTS                  = %d s%s\n", c->hsts, c->hsts ? "" : " (désactivé)");
+    }
     printf("  PUBLIC_DIR            = %s\n", c->public_dir);
     printf("  INDEX_FILE            = %s\n", c->index_file);
     printf("  AUTO_INDEX            = %d\n", c->auto_index);
@@ -444,6 +485,17 @@ const char *LITH_DEFAULT_CONF =
 "REQUEST_TIMEOUT=10\n"
 "# Taille maximum du corps d'une requête (K, M, G acceptés)\n"
 "MAX_BODY_SIZE=10M\n"
+"\n"
+"# --- HTTPS (exécutable compilé avec : make TLS=1) ---------------\n"
+"# Port HTTPS (0 = désactivé ; le port HTTP ci-dessus reste ouvert)\n"
+"# TLS_PORT=8443\n"
+"# Certificat (chaîne complète, PEM) et clé privée (PEM)\n"
+"# TLS_CERT=certs/fullchain.pem\n"
+"# TLS_KEY=certs/privkey.pem\n"
+"# Rediriger le port HTTP vers HTTPS (sauf /__lith/health et /.well-known/acme-challenge/)\n"
+"# TLS_REDIRECT=1\n"
+"# Strict-Transport-Security : durée en secondes (0 = non envoyé)\n"
+"# HSTS=31536000\n"
 "\n"
 "# --- Fichiers -------------------------------------------------\n"
 "# Dossier contenant le site web\n"

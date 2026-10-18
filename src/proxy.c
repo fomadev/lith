@@ -118,7 +118,7 @@ static bool is_hop_header(const char *name) {
     return false;
 }
 
-static char *build_backend_request(LithConn *c, HttpRequest *req, const BackendConf *bc, size_t *len) {
+char *proxy_build_request(LithConn *c, HttpRequest *req, const BackendConf *bc, size_t *len) {
     StrBuf sb;
     sb_init(&sb);
     sb_printf(&sb, "%s %s HTTP/1.1\r\n", req->method, req->target);
@@ -138,7 +138,8 @@ static char *build_backend_request(LithConn *c, HttpRequest *req, const BackendC
     else sb_printf(&sb, "X-Forwarded-For: %s\r\n", c->ip);
     sb_printf(&sb, "X-Real-IP: %s\r\n", c->ip);
     if (host) sb_printf(&sb, "X-Forwarded-Host: %s\r\n", host);
-    sb_puts(&sb, "X-Forwarded-Proto: http\r\n");
+    /* Le backend reçoit toujours du HTTP en clair : on lui dit comment le client est arrivé. */
+    sb_printf(&sb, "X-Forwarded-Proto: %s\r\n", conn_is_https(c) ? "https" : "http");
     if (req->body_len > 0 || req->content_length >= 0)
         sb_printf(&sb, "Content-Length: %zu\r\n", req->body_len);
     sb_puts(&sb, "Connection: close\r\n\r\n");
@@ -217,7 +218,7 @@ static int relay_response(LithConn *c, socket_t bs, bool *timed_out) {
     c->headers_sent = true;
     c->keep_alive = false;
     c->force_close = true;
-    if (!head || lith_send_all(c->sock, head, head_len) != 0) {
+    if (!head || lith_stream_send_all(&c->io, head, head_len) != 0) {
         free(head);
         free(buf);
         return 0;
@@ -227,13 +228,13 @@ static int relay_response(LithConn *c, socket_t bs, bool *timed_out) {
     /* Corps déjà reçu avec les en-têtes, puis le reste jusqu'à la fermeture du backend. */
     size_t body_have = have - (size_t)head_end;
     if (body_have > 0) {
-        if (lith_send_all(c->sock, buf + head_end, body_have) != 0) { free(buf); return 0; }
+        if (lith_stream_send_all(&c->io, buf + head_end, body_have) != 0) { free(buf); return 0; }
         c->bytes_sent += (long long)body_have;
     }
     for (;;) {
         long n = lith_recv(bs, buf, RELAY_CHUNK);
         if (n <= 0) break;
-        if (lith_send_all(c->sock, buf, (size_t)n) != 0) break;
+        if (lith_stream_send_all(&c->io, buf, (size_t)n) != 0) break;
         c->bytes_sent += n;
     }
     free(buf);
@@ -272,7 +273,7 @@ void proxy_handle(LithConn *c, HttpRequest *req, int route) {
             lith_socket_set_send_timeout(bs, g_config.proxy_timeout * 1000);
 
             size_t rlen = 0;
-            char *request = build_backend_request(c, req, bc, &rlen);
+            char *request = proxy_build_request(c, req, bc, &rlen);
             int ok = request && lith_send_all(bs, request, rlen) == 0;
             free(request);
             if (ok && req->body_len > 0) ok = lith_send_all(bs, req->body, req->body_len) == 0;

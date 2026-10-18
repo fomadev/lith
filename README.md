@@ -25,6 +25,7 @@ lith start
 |---|---|
 | 🪶 **Minuscule** | ≈ 300 Ko, quelques Mo de RAM, image Docker de ≈ 330 Ko |
 | 📦 **Zéro dépendance** | Ni OpenSSL, ni zlib, ni runtime : seulement la bibliothèque C du système |
+| 🔒 **HTTPS en option** | `make TLS=1` : TLS 1.2/1.3 via un petit module Rust (rustls), redirection HTTP → HTTPS, HSTS |
 | ⚡ **Rapide** | Pool de threads, keep-alive, cache mémoire, gzip, `sendfile()` |
 | 🛡️ **Sûr par défaut** | Anti-remontée de dossiers, fichiers cachés protégés, en-têtes de sécurité, anti-slowloris |
 | 🧰 **Complet** | Proxy inverse, répartition de charge, WebSocket, live reload, statistiques Prometheus |
@@ -42,6 +43,8 @@ lith start
 - **Développement** : `lith start --dev` recharge le navigateur à chaque modification (WebSocket).
 - **Supervision** : `/__lith/health`, `/__lith/status` (JSON), `/__lith/metrics` (Prometheus).
 - **Exploitation** : mode démon + `lith stop`, journal d'accès, arrêt propre, Docker.
+- **HTTPS (option `make TLS=1`)** : `TLS_PORT`, certificats PEM (Let's Encrypt), `TLS_REDIRECT`, `HSTS`,
+  `X-Forwarded-Proto: https` vers les backends. Sans l'option, le cœur reste 100 % C, sans dépendance.
 
 ---
 
@@ -60,6 +63,14 @@ git clone https://github.com/fomadev/lith.git
 cd lith
 make            # produit bin/lith (ou bin/lith.exe)
 make test       # tests unitaires
+```
+
+Avec HTTPS (il faut en plus [Rust](https://rustup.rs) ; sous Windows avec
+MinGW : `rustup target add x86_64-pc-windows-gnu`) :
+
+```bash
+make TLS=1      # ajoute le module tls/ (rustls)
+make TLS=1 test
 ```
 
 ### Docker
@@ -97,9 +108,16 @@ RATE_LIMIT=50                      # 50 requêtes/s par IP
 AUTH=/admin admin:motdepasse       # zone protégée
 PROXY=/api http://127.0.0.1:3000   # envoyer /api à votre application
 SPA_FALLBACK=1                     # React, Vue, Angular...
+
+# HTTPS (exécutable compilé avec make TLS=1)
+TLS_PORT=443
+TLS_CERT=fullchain.pem
+TLS_KEY=privkey.pem
+TLS_REDIRECT=1                     # http:// -> https://
+HSTS=31536000
 ```
 
-La liste complète des réglages (plus de 30) est détaillée au
+La liste complète des réglages (plus de 35) est détaillée au
 [chapitre 5 de la documentation](DOCUMENTATION.md#chapitre-5--le-fichier-de-configuration-lithconf).
 
 ---
@@ -109,6 +127,7 @@ La liste complète des réglages (plus de 30) est détaillée au
 ```text
 include/   en-têtes C (un par module)
 src/       code source : serveur, HTTP, fichiers, proxy, WebSocket...
+tls/       module HTTPS optionnel en Rust (rustls), compilé avec make TLS=1
 tests/     tests unitaires (C) et d'intégration (bash + curl)
 public/    site d'exemple servi par défaut
 docker/    configuration de l'image Docker

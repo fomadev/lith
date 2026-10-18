@@ -17,7 +17,9 @@ jobs:
       - name: Dépendances de test
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl apache2-utils
+          sudo apt-get install -y build-essential curl apache2-utils openssl
+          # ASan peut boucler au démarrage avec l'ASLR à 32 bits des noyaux récents.
+          sudo sysctl -w vm.mmap_rnd_bits=28
 
       - name: Compilation stricte (-Werror)
         run: make CFLAGS="-O2 -Werror"
@@ -34,6 +36,28 @@ jobs:
           make DEBUG=1
           make test DEBUG=1
           LITH_TEST_PORT=18190 bash tests/integration.sh
+
+      - name: Cache du module HTTPS (Rust)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            tls/target
+          key: tls-linux-${{ hashFiles('tls/Cargo.lock', 'tls/src/**') }}
+
+      - name: HTTPS (make TLS=1) - unitaires + intégration
+        run: |
+          make clean
+          make TLS=1 CFLAGS="-O2 -Werror"
+          make TLS=1 test
+          LITH_TEST_PORT=18290 make TLS=1 integration
+
+      - name: HTTPS avec AddressSanitizer / UBSan
+        run: |
+          make clean
+          make TLS=1 DEBUG=1
+          make TLS=1 DEBUG=1 test
+          LITH_TEST_PORT=18390 bash tests/integration.sh
 
   macos:
     name: macOS (unitaires + intégration)
@@ -61,13 +85,18 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc make curl
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-rust make curl openssl
       - name: Compilation
         run: make CFLAGS="-O2 -Werror"
       - name: Tests unitaires
         run: make test
       - name: Tests d'intégration
         run: make integration
+      - name: HTTPS (make TLS=1) - unitaires + intégration
+        run: |
+          make TLS=1 CFLAGS="-O2 -Werror"
+          make TLS=1 test
+          LITH_TEST_PORT=18290 make TLS=1 integration
 
   docker:
     name: Image Docker

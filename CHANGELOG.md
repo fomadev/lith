@@ -3,6 +3,37 @@
 Toutes les évolutions notables de LITH sont listées ici.
 Le projet suit le [versionnage sémantique](https://semver.org/lang/fr/) : `MAJEUR.MINEUR.CORRECTIF`.
 
+## [Non publié]
+
+### Ajouté
+- **HTTPS natif, en option de compilation** : `make TLS=1`. Le chiffrement est
+  confié à un petit module Rust (`tls/`, bibliothèque **rustls**, fournisseur
+  cryptographique *ring*) compilé en bibliothèque statique et appelé via une
+  API C minimale (`tls/lith_tls.h`). Sans `TLS=1`, l'exécutable reste 100 % C,
+  sans aucune dépendance, et son comportement est inchangé.
+- Nouvelles clés de configuration : `TLS_PORT` (port HTTPS, en plus de `PORT`),
+  `TLS_CERT` / `TLS_KEY` (certificat et clé PEM), `TLS_REDIRECT` (redirection
+  `301`/`308` de HTTP vers HTTPS, sauf `/__lith/health` et
+  `/.well-known/acme-challenge/`) et `HSTS` (`Strict-Transport-Security`).
+- TLS 1.2 et 1.3, ALPN `http/1.1`, reprise de session ; toutes les fonctions
+  (fichiers, gzip, Range, keep-alive, proxy, live reload en `wss://`,
+  statistiques) fonctionnent en HTTPS, avec les mêmes délais anti-slowloris,
+  poignée de main comprise.
+- `lith check` charge réellement le certificat et la clé et explique les erreurs ;
+  un exécutable compilé sans HTTPS refuse `TLS_PORT` au lieu de l'ignorer.
+- Tests HTTPS d'intégration (certificat auto-signé généré à la volée, jamais
+  stocké dans le dépôt), tests unitaires de configuration et du proxy ; la CI
+  compile et teste `make TLS=1` sous Linux (avec sanitizers) et Windows.
+- `make distclean` supprime aussi la compilation Rust.
+
+### Modifié
+- Proxy inverse : `X-Forwarded-Proto` vaut `https` quand le visiteur est
+  arrivé en HTTPS (toujours `http` auparavant).
+- Interne : toutes les E/S d'une connexion cliente passent par `LithStream`
+  (`src/tls.c`), qui choisit entre la socket brute et la session TLS.
+- Passer de `make` à `make TLS=1` (et inversement) refait l'édition de liens
+  sans `make clean` ; les objets TLS sont rangés dans `build/tls/`.
+
 ## [1.0.0] - 2026-10-18
 
 Première version stable. Le moteur a été entièrement restructuré en modules

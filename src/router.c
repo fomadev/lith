@@ -88,6 +88,44 @@ static void handle_internal(LithConn *c, HttpRequest *req) {
     resp_error(c, 404, NULL);
 }
 
+/*
+ * TLS_REDIRECT : sur le port HTTP, renvoie le client vers https://. Restent en
+ * clair /__lith/health (sondes, `lith health`) et /.well-known/acme-challenge/
+ * (validation Let's Encrypt). Retourne true si une réponse a été envoyée.
+ */
+static bool redirect_to_https(LithConn *c, HttpRequest *req) {
+    if (!g_config.tls_redirect || conn_is_https(c)) return false;
+    if (strcmp(req->path, "/__lith/health") == 0 || strncmp(req->path, "/.well-known/acme-challenge/", 28) == 0)
+        return false;
+
+    /* Nom d'hôte demandé, sans son port ; caractères limités pour éviter toute injection. */
+    const char *host = http_header_get(req, "Host");
+    char name[256];
+    size_t n = 0;
+    if (host && host[0] == '[') {
+        const char *end = strchr(host, ']');
+        n = end ? (size_t)(end - host) + 1 : 0;
+    } else if (host) {
+        n = strcspn(host, ":");
+    }
+    if (n == 0 || n >= sizeof(name) || strspn(host, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-[]:") < n) {
+        resp_error(c, 400, "A valid Host header is required to redirect to HTTPS.");
+        return true;
+    }
+    memcpy(name, host, n);
+    name[n] = '\0';
+
+    char port[16] = "";
+    if (g_config.tls_port != 443) snprintf(port, sizeof(port), ":%d", g_config.tls_port);
+    RespHeaders h;
+    resp_init(&h);
+    resp_add(&h, "Location", "https://%s%s%s", name, port, req->target[0] == '/' ? req->target : "/");
+    /* 301 pour les lectures ; 308 conserve la méthode et le corps (POST...). */
+    bool safe = !strcmp(req->method, "GET") || !strcmp(req->method, "HEAD");
+    resp_send(c, safe ? 301 : 308, NULL, NULL, 0, &h);
+    return true;
+}
+
 static void handle_options(LithConn *c, HttpRequest *req) {
     RespHeaders h;
     resp_init(&h);
@@ -127,6 +165,8 @@ void router_handle(LithConn *c, HttpRequest *req) {
         resp_error(c, 403, NULL);
         return;
     }
+
+    if (redirect_to_https(c, req)) return;
 
     if (strncmp(req->path, "/__lith/", 8) == 0) {
         handle_internal(c, req);

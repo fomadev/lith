@@ -11,7 +11,10 @@
 #include "config.h"
 #include "http.h"
 #include "lith_crypto.h"
+#include "logger.h"
+#include "proxy.h"
 #include "strbuf.h"
+#include "tls.h"
 #include "websocket.h"
 
 #include <stdio.h>
@@ -333,6 +336,63 @@ static void test_config(void) {
     CHECK(config_apply(&c, "LOG_LEVEL", "debug", err, sizeof(err)) && c.log_level == LOG_DEBUG);
 }
 
+static void test_https_config(void) {
+    printf("- configuration HTTPS\n");
+    LithConfig c;
+    char err[256];
+    config_set_defaults(&c);
+    CHECK(c.tls_port == 0 && !c.tls_redirect && c.hsts == 0);   /* HTTPS désactivé par défaut */
+    CHECK(config_apply(&c, "TLS_PORT", "8443", err, sizeof(err)) && c.tls_port == 8443);
+    CHECK(config_apply(&c, "TLS_PORT", "0", err, sizeof(err)) && c.tls_port == 0);
+    CHECK(!config_apply(&c, "TLS_PORT", "70000", err, sizeof(err)));
+    CHECK(config_apply(&c, "TLS_CERT", "certs/fullchain.pem", err, sizeof(err)) && strcmp(c.tls_cert, "certs/fullchain.pem") == 0);
+    CHECK(config_apply(&c, "TLS_KEY", "certs/privkey.pem", err, sizeof(err)) && strcmp(c.tls_key, "certs/privkey.pem") == 0);
+    CHECK(config_apply(&c, "TLS_REDIRECT", "on", err, sizeof(err)) && c.tls_redirect);
+    CHECK(!config_apply(&c, "TLS_REDIRECT", "parfois", err, sizeof(err)));
+    CHECK(config_apply(&c, "HSTS", "31536000", err, sizeof(err)) && c.hsts == 31536000);
+    CHECK(!config_apply(&c, "HSTS", "-1", err, sizeof(err)));
+
+    /* Certificat absent : refusé au démarrage, quel que soit le mode de compilation. */
+    snprintf(c.public_dir, sizeof(c.public_dir), ".");
+    c.tls_port = 8443;
+    snprintf(c.tls_cert, sizeof(c.tls_cert), "inexistant-cert.pem");
+    snprintf(c.tls_key, sizeof(c.tls_key), "inexistant-key.pem");
+    lith_log_set_level((LogLevel)(LOG_ERROR + 1));   /* erreurs attendues : on les masque */
+    CHECK(config_validate(&c) >= 1);
+    CHECK(!tls_check_files(c.tls_cert, c.tls_key, err, sizeof(err)) && err[0]);
+    /* Même port pour HTTP et HTTPS : refusé. */
+    c.tls_port = c.port;
+    CHECK(config_validate(&c) >= 2);
+    /* TLS_REDIRECT sans HTTPS : ignoré. */
+    c.tls_port = 0;
+    c.tls_redirect = true;
+    CHECK(config_validate(&c) == 0 && !c.tls_redirect);
+    lith_log_set_level(LOG_INFO);
+}
+
+static void test_forwarded_proto(void) {
+    printf("- proxy : X-Forwarded-Proto\n");
+    char buf[1024];
+    HttpRequest r;
+    CHECK(parse("GET /api/x HTTP/1.1\r\nHost: site.fr\r\nX-Forwarded-Proto: https\r\n\r\n", &r, buf, sizeof(buf)) == 0);
+    LithConn c;
+    memset(&c, 0, sizeof(c));
+    snprintf(c.ip, sizeof(c.ip), "203.0.113.7");
+    BackendConf bc = { "127.0.0.1", "3000" };
+
+    size_t len = 0;
+    char *out = proxy_build_request(&c, &r, &bc, &len);
+    /* En clair : "http", et l'en-tête envoyé par le client (falsifiable) n'est pas recopié. */
+    CHECK(out && strstr(out, "X-Forwarded-Proto: http\r\n") && !strstr(out, "X-Forwarded-Proto: https"));
+    CHECK(out && strstr(out, "X-Forwarded-Host: site.fr\r\n") && strstr(out, "X-Forwarded-For: 203.0.113.7\r\n"));
+    free(out);
+
+    c.io.tls = (RtlsSession *)&c;   /* marqueur "connexion chiffrée" : jamais déréférencé ici */
+    out = proxy_build_request(&c, &r, &bc, &len);
+    CHECK(out && strstr(out, "X-Forwarded-Proto: https\r\n"));
+    free(out);
+}
+
 static void test_strbuf(void) {
     printf("- tampon de texte\n");
     StrBuf sb;
@@ -353,6 +413,8 @@ int main(void) {
     test_crypto();
     test_gzip();
     test_config();
+    test_https_config();
+    test_forwarded_proto();
     test_strbuf();
     printf("\n%d vérifications, %d échec(s)\n", g_run, g_failed);
     return g_failed ? 1 : 0;

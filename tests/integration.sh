@@ -32,6 +32,7 @@ case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) UNIX=0 ;; esac
 cleanup() {
     [ -n "${SERVER_PID:-}" ] && kill "$SERVER_PID" 2>/dev/null
     [ -n "${BACKEND_PID:-}" ] && kill "$BACKEND_PID" 2>/dev/null
+    [ -n "${TLS_PID:-}" ] && kill "$TLS_PID" 2>/dev/null
     if [ $UNIX -eq 0 ]; then taskkill //F //IM "$(basename "$LITH")" >/dev/null 2>&1 || true; fi
     rm -rf "$WORK"
 }
@@ -173,6 +174,84 @@ expect "/__lith/status (JSON)" "1" "$(curl -s "$BASE/__lith/status" | grep -c '"
 expect "/__lith/metrics (Prometheus)" "1" "$(curl -s "$BASE/__lith/metrics" | grep -c '^lith_info{version="1.0.0"} 1')"
 expect "statut refusé si relayé par un proxy" "403" "$(code -H "X-Forwarded-For: 203.0.113.9" "$BASE/__lith/status")"
 expect "journal d'accès écrit" "1" "$([ "$(grep -c '"GET / HTTP/1.1" 200' server.log)" -ge 1 ] && echo 1 || echo 0)"
+
+echo "== HTTPS"
+TLS_HTTP_PORT=$((PORT + 3))
+TLS_PORT=$((PORT + 4))
+TLS_BASE="https://localhost:$TLS_PORT"
+mkdir -p "$WORK/tls/public/.well-known/acme-challenge"
+cp public/data.bin public/long.txt public/index.html "$WORK/tls/public/"
+if "$LITH" check 2>/dev/null | grep -q "compilé sans HTTPS"; then
+    # Exécutable sans TLS : HTTPS doit être refusé avec un message clair, jamais ignoré.
+    printf 'TLS_PORT=%s\nTLS_CERT=c.pem\nTLS_KEY=k.pem\n' "$TLS_PORT" > "$WORK/tls/lith.conf"
+    OUT=$(cd "$WORK/tls" && "$LITH" check 2>&1); RC=$?
+    expect "TLS_PORT refusé sans make TLS=1" "1" "$RC"
+    expect "message : recompiler avec make TLS=1" "1" "$(echo "$OUT" | grep -c 'make TLS=1`')"
+    echo "  (exécutable compilé sans HTTPS : compilez avec make TLS=1 pour les tests HTTPS complets)"
+elif ! command -v openssl >/dev/null 2>&1; then
+    ko "HTTPS" "openssl est nécessaire pour générer le certificat de test"
+else
+    # Certificat auto-signé jetable : généré ici, supprimé avec $WORK, jamais commité.
+    (cd "$WORK/tls" && MSYS_NO_PATHCONV=1 openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
+        -keyout key.pem -out cert.pem -subj "/CN=localhost" \
+        -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1)
+    [ -s "$WORK/tls/cert.pem" ] && ok "certificat de test généré" || ko "certificat de test" "openssl a échoué"
+    echo "pas un certificat" > "$WORK/tls/bad.pem"
+    cat > "$WORK/tls/lith.conf" <<EOF
+PORT=$TLS_HTTP_PORT
+TLS_PORT=$TLS_PORT
+TLS_CERT=cert.pem
+TLS_KEY=key.pem
+TLS_REDIRECT=1
+HSTS=600
+REQUEST_TIMEOUT=2
+LIVE_RELOAD=1
+PROXY=/api http://127.0.0.1:$BACKEND_PORT
+EOF
+    sed 's/^TLS_KEY=.*/TLS_KEY=bad.pem/' "$WORK/tls/lith.conf" > "$WORK/tls/bad.conf"
+    (cd "$WORK/tls" && "$LITH" check >/dev/null 2>&1); expect "lith check (certificat valide)" "0" "$?"
+    (cd "$WORK/tls" && "$LITH" check -c bad.conf >/dev/null 2>&1); expect "lith check (clé invalide)" "1" "$?"
+
+    (cd "$WORK/tls" && exec "$LITH" start > server.log 2>&1) & TLS_PID=$!
+    if ! wait_up "$TLS_HTTP_PORT"; then
+        ko "serveur HTTPS" "n'a pas démarré"; cat "$WORK/tls/server.log"
+    else
+        CA="--cacert $WORK/tls/cert.pem"
+        expect "GET https:// (certificat vérifié)" "200 0" "$(curl -s $CA -o /dev/null -w '%{http_code} %{ssl_verify_result}' "$TLS_BASE/")"
+        curl -s -o /dev/null "$TLS_BASE/"; expect "certificat inconnu refusé par le client" "60" "$?"
+        expect "ALPN http/1.1" "1" "$(curl -sv $CA -o /dev/null "$TLS_BASE/" 2>&1 | grep -ci 'ALPN.*accepted.*http/1.1')"
+        expect "TLS 1.2 accepté" "200" "$(code $CA --tlsv1.2 --tls-max 1.2 "$TLS_BASE/")"
+        expect "en-tête HSTS en HTTPS" "1" "$(curl -s $CA -D - -o /dev/null "$TLS_BASE/" | grep -ci 'strict-transport-security: max-age=600')"
+        expect "pas de HSTS en HTTP" "0" "$(curl -s -D - -o /dev/null "http://127.0.0.1:$TLS_HTTP_PORT/__lith/health" | grep -ci 'strict-transport-security')"
+        expect "TLS_REDIRECT : GET -> 301" "301 https://localhost:$TLS_PORT/docs?x=1" \
+            "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://localhost:$TLS_HTTP_PORT/docs?x=1")"
+        expect "TLS_REDIRECT : POST -> 308" "308" "$(code -X POST -d a=1 "http://localhost:$TLS_HTTP_PORT/__lith/echo")"
+        expect "TLS_REDIRECT : santé reste en HTTP" "200" "$(code "http://127.0.0.1:$TLS_HTTP_PORT/__lith/health")"
+        expect "TLS_REDIRECT : ACME reste en HTTP" "404" "$(code "http://127.0.0.1:$TLS_HTTP_PORT/.well-known/acme-challenge/jeton")"
+        expect "TLS_REDIRECT : Host invalide -> 400" "400" "$(code -H 'Host: a"b' "http://127.0.0.1:$TLS_HTTP_PORT/")"
+        expect "redirection suivie jusqu'en HTTPS" "200 $TLS_BASE/" "$(curl -sL $CA -o /dev/null -w '%{http_code} %{url_effective}' "http://localhost:$TLS_HTTP_PORT/")"
+        curl -s $CA "$TLS_BASE/data.bin" -o "$WORK/tls-dl.bin"
+        cmp -s "$WORK/tls-dl.bin" public/data.bin && ok "HTTPS : fichier binaire identique" || ko "HTTPS : fichier binaire" "contenu différent"
+        expect "HTTPS : Range 0-99 -> 206" "206 100" "$(curl -s $CA -o /dev/null -w '%{http_code} %{size_download}' -H 'Range: bytes=0-99' "$TLS_BASE/data.bin")"
+        curl -s $CA --compressed "$TLS_BASE/long.txt" -o "$WORK/tls-long.txt"
+        cmp -s "$WORK/tls-long.txt" public/long.txt && ok "HTTPS : gzip décompressé identique" || ko "HTTPS : gzip" "contenu différent"
+        head -c 50000 /dev/zero > "$WORK/tls-body.bin"
+        expect "HTTPS : POST 50 Ko" "50000" "$(curl -s $CA --data-binary @"$WORK/tls-body.bin" "$TLS_BASE/__lith/echo" | sed 's/.*"bytes_received":\([0-9]*\).*/\1/')"
+        REUSE=$(curl -sv $CA "$TLS_BASE/" "$TLS_BASE/" -o /dev/null -o /dev/null 2>&1 | grep -ci 're-using\|reusing')
+        [ "$REUSE" -ge 1 ] && ok "HTTPS : keep-alive" || ko "HTTPS : keep-alive" "pas de réutilisation"
+        expect "HTTPS : proxy vers backend" '{"backend":"ok"}' "$(curl -s $CA "$TLS_BASE/api/hello.json")"
+        WSS=$(curl -s $CA -i -N --max-time 1 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
+              -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "$TLS_BASE/__lith/livereload" | tr -d '\r')
+        expect "HTTPS : WebSocket (wss://) 101" "1" "$(echo "$WSS" | grep -c 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=')"
+        expect "HTTP en clair sur le port HTTPS : rejeté" "000" "$(curl -s -m 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$TLS_PORT/")"
+        START=$(date +%s)
+        (exec 3<>"/dev/tcp/127.0.0.1/$TLS_PORT" && printf '\026\003\001' >&3 && timeout 8 cat <&3 >/dev/null; exec 3<&-) 2>/dev/null
+        DUR=$(( $(date +%s) - START ))
+        [ "$DUR" -le 5 ] && ok "HTTPS anti-slowloris : poignée de main coupée en ${DUR}s" || ko "HTTPS anti-slowloris" "${DUR}s"
+        expect "serveur HTTPS toujours en vie" "200" "$(code $CA "$TLS_BASE/__lith/health")"
+    fi
+    kill "$TLS_PID" 2>/dev/null; wait "$TLS_PID" 2>/dev/null; TLS_PID=""
+fi
 
 if [ $UNIX -eq 1 ]; then
     echo "== Spécifique UNIX"

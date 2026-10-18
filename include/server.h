@@ -14,10 +14,11 @@
 #include <stddef.h>
 #include "platform.h"
 #include "http.h"
+#include "tls.h"
 
 /* Une connexion TCP cliente et l'état de la requête en cours. */
 typedef struct {
-    socket_t     sock;
+    LithStream   io;             /* socket + session TLS éventuelle (HTTPS) */
     char         ip[64];
     int          requests_served;
 
@@ -29,6 +30,8 @@ typedef struct {
     bool         force_close;    /* fermer après cette réponse */
     bool         detached;       /* socket confiée à un autre thread (WebSocket) */
 } LithConn;
+
+static inline bool conn_is_https(const LithConn *c) { return lith_stream_is_tls(&c->io); }
 
 /* En-têtes supplémentaires d'une réponse. */
 typedef struct {

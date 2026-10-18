@@ -217,8 +217,9 @@ static int build_config(const CliOptions *o, bool positional_is_port) {
 static void make_absolute(char *path, size_t size, const char *cwd) {
     if (!path[0] || lith_path_is_absolute(path)) return;
     char tmp[LITH_PATH_MAX * 2];
-    snprintf(tmp, sizeof(tmp), "%s/%s", cwd, path);
-    snprintf(path, size, "%s", tmp);
+    int n = snprintf(tmp, sizeof(tmp), "%s/%s", cwd, path);
+    if (n < 0 || (size_t)n >= size) return;   /* trop long : on garde le chemin relatif */
+    memcpy(path, tmp, (size_t)n + 1);
 }
 #endif
 
@@ -252,6 +253,8 @@ static int cmd_start(int argc, char **argv) {
         make_absolute(g_config.public_dir, sizeof(g_config.public_dir), cwd);
         make_absolute(g_config.log_file, sizeof(g_config.log_file), cwd);
         make_absolute(g_config.pid_file, sizeof(g_config.pid_file), cwd);
+        make_absolute(g_config.tls_cert, sizeof(g_config.tls_cert), cwd);
+        make_absolute(g_config.tls_key, sizeof(g_config.tls_key), cwd);
 
         long old = lith_pidfile_read(g_config.pid_file);
         if (old > 0 && kill((pid_t)old, 0) == 0) {

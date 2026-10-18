@@ -71,6 +71,7 @@ int   lith_socket_set_send_timeout(socket_t s, int ms);
 int   lith_send_all(socket_t s, const void *buf, size_t len);
 long  lith_recv(socket_t s, void *buf, size_t len);
 bool  lith_last_error_is_timeout(void);
+void  lith_set_last_error(bool timeout);   /* pour les couches au-dessus de recv (TLS) */
 int   lith_connect_tcp(const char *host, const char *port, int timeout_ms, socket_t *out);
 bool  lith_ip_is_loopback(const char *ip);
 

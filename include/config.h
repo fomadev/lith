@@ -48,6 +48,13 @@ typedef struct {
     int       request_timeout;       /* secondes pour recevoir une requête complète */
     long long max_body_size;         /* octets */
 
+    /* --- HTTPS (make TLS=1) --- */
+    int  tls_port;                   /* 0 = HTTPS désactivé */
+    char tls_cert[LITH_PATH_MAX];    /* chaîne de certificats PEM */
+    char tls_key[LITH_PATH_MAX];     /* clé privée PEM */
+    bool tls_redirect;               /* le port HTTP redirige vers HTTPS */
+    int  hsts;                       /* max-age de Strict-Transport-Security (0 = non envoyé) */
+
     /* --- Fichiers --- */
     char public_dir[LITH_PATH_MAX];
     char index_file[128];

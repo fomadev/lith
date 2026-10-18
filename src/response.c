@@ -69,6 +69,9 @@ int resp_send_head(LithConn *c, int status, const RespHeaders *extra, long long 
         APPEND("Referrer-Policy: strict-origin-when-cross-origin\r\n");
         if (g_config.csp[0]) APPEND("Content-Security-Policy: %s\r\n", g_config.csp);
     }
+    /* HSTS n'a de sens (et n'est pris en compte par les navigateurs) qu'en HTTPS. */
+    if (g_config.hsts > 0 && conn_is_https(c) && status != 101)
+        APPEND("Strict-Transport-Security: max-age=%d\r\n", g_config.hsts);
     if (g_config.cors_origin[0] && status != 101) {
         APPEND("Access-Control-Allow-Origin: %s\r\n", g_config.cors_origin);
         if (strcmp(g_config.cors_origin, "*") != 0) APPEND("Vary: Origin\r\n");
@@ -81,13 +84,13 @@ int resp_send_head(LithConn *c, int status, const RespHeaders *extra, long long 
     APPEND("\r\n");
 #undef APPEND
 
-    return lith_send_all(c->sock, head, len);
+    return lith_stream_send_all(&c->io, head, len);
 }
 
 int resp_send_body(LithConn *c, const void *data, size_t len) {
     if (c->req && c->req->is_head) return 0;
     if (len == 0) return 0;
-    if (lith_send_all(c->sock, data, len) != 0) {
+    if (lith_stream_send_all(&c->io, data, len) != 0) {
         c->force_close = true;
         c->keep_alive = false;
         return -1;

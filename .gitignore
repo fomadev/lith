@@ -22,3 +22,7 @@ obj/
 # Système
 .DS_Store
 Thumbs.db
+
+# Module HTTPS (Rust) et certificats de test
+tls/target/
+*.pem

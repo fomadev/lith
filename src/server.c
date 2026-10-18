@@ -34,6 +34,7 @@
 typedef struct Job {
     socket_t    sock;
     char        ip[64];
+    bool        tls;            /* acceptée sur TLS_PORT */
     struct Job *next;
 } Job;
 
@@ -90,20 +91,7 @@ static long find_header_end(const char *buf, size_t len, size_t from) {
     return -1;
 }
 
-/* Fermeture "douce" après une erreur : laisse le client lire la réponse avant le reset TCP. */
-static void lingering_close(socket_t s) {
-#ifdef _WIN32
-    shutdown(s, SD_SEND);
-#else
-    shutdown(s, SHUT_WR);
-#endif
-    char tmp[4096];
-    for (int i = 0; i < 4; i++)
-        if (lith_recv(s, tmp, sizeof(tmp)) <= 0) break;
-    lith_socket_close(s);
-}
-
-static void handle_connection(socket_t sock, const char *ip) {
+static void handle_connection(socket_t sock, const char *ip, bool tls) {
     metrics_conn_open();
     lith_socket_set_recv_timeout(sock, POLL_SLICE_MS);
     lith_socket_set_send_timeout(sock, 30000);
@@ -112,8 +100,17 @@ static void handle_connection(socket_t sock, const char *ip) {
 
     LithConn c;
     memset(&c, 0, sizeof(c));
-    c.sock = sock;
+    c.io.sock = sock;
+    c.io.tls = NULL;
     snprintf(c.ip, sizeof(c.ip), "%s", ip);
+
+    /* HTTPS : la poignée de main TLS se déroule pendant la lecture de la première requête. */
+    if (tls && lith_stream_start_tls(&c.io) != 0) {
+        lith_log(LOG_WARN, "HTTPS : impossible de démarrer une session TLS pour %s", c.ip);
+        lith_stream_close(&c.io, false);
+        metrics_conn_close();
+        return;
+    }
 
     char *buf = (char *)malloc(HTTP_MAX_HEADER_BYTES + 1);
     size_t have = 0;
@@ -145,7 +142,7 @@ static void handle_connection(socket_t sock, const char *ip) {
             }
             scan_from = have > 3 ? have - 3 : 0;
 
-            long n = lith_recv(sock, buf + have, HTTP_MAX_HEADER_BYTES - have);
+            long n = lith_stream_recv(&c.io, buf + have, HTTP_MAX_HEADER_BYTES - have);
             if (n > 0) {
                 if (have == 0) first_byte = lith_now_ms();
                 have += (size_t)n;
@@ -220,11 +217,11 @@ static void handle_connection(socket_t sock, const char *ip) {
             if (take < cl) {
                 const char *expect = http_header_get(&req, "Expect");
                 if (expect && strcasecmp(expect, "100-continue") == 0)
-                    lith_send_all(sock, "HTTP/1.1 100 Continue\r\n\r\n", 25);
+                    lith_stream_send_all(&c.io, "HTTP/1.1 100 Continue\r\n\r\n", 25);
                 size_t got = take;
                 uint64_t last_activity = lith_now_ms();
                 while (got < cl) {
-                    long n = lith_recv(sock, req.body + got, cl - got);
+                    long n = lith_stream_recv(&c.io, req.body + got, cl - got);
                     if (n > 0) {
                         got += (size_t)n;
                         last_activity = lith_now_ms();
@@ -270,8 +267,7 @@ static void handle_connection(socket_t sock, const char *ip) {
 
 done:
     free(buf);
-    if (linger) lingering_close(sock);
-    else lith_socket_close(sock);
+    lith_stream_close(&c.io, linger);
     metrics_conn_close();
 }
 
@@ -296,17 +292,18 @@ static void *worker_main(void *arg) {
         pthread_mutex_unlock(&P.mu);
 
         if (stopping) lith_socket_close(job->sock);
-        else handle_connection(job->sock, job->ip);
+        else handle_connection(job->sock, job->ip, job->tls);
         free(job);
     }
     return NULL;
 }
 
-static bool pool_push(socket_t sock, const char *ip) {
+static bool pool_push(socket_t sock, const char *ip, bool tls) {
     Job *job = (Job *)malloc(sizeof(Job));
     if (!job) return false;
     job->sock = sock;
     snprintf(job->ip, sizeof(job->ip), "%s", ip);
+    job->tls = tls;
     job->next = NULL;
     pthread_mutex_lock(&P.mu);
     if (P.tail) P.tail->next = job;
@@ -351,9 +348,9 @@ static void pool_stop(void) {
 /* Écoute                                                                  */
 /* ---------------------------------------------------------------------- */
 
-static socket_t open_listener(void) {
+static socket_t open_listener(int port_num) {
     char port[8];
-    snprintf(port, sizeof(port), "%d", g_config.port);
+    snprintf(port, sizeof(port), "%d", port_num);
     struct addrinfo hints, *res = NULL;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -385,15 +382,16 @@ static socket_t open_listener(void) {
         setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&off, sizeof(off));
     }
     if (bind(s, res->ai_addr, (int)res->ai_addrlen) != 0) {
-        lith_log(LOG_ERROR, "Le port %d est déjà utilisé ou inaccessible (HOST=%s). Essayez un autre port : lith start 8091",
-                 g_config.port, g_config.host);
+        lith_log(LOG_ERROR, "Le port %d est déjà utilisé ou inaccessible (HOST=%s). %s",
+                 port_num, g_config.host,
+                 port_num == g_config.port ? "Essayez un autre port : lith start 8091" : "Choisissez un autre TLS_PORT dans lith.conf");
         lith_socket_close(s);
         freeaddrinfo(res);
         return LITH_INVALID_SOCKET;
     }
     freeaddrinfo(res);
     if (listen(s, SOMAXCONN) != 0) {
-        lith_log(LOG_ERROR, "listen() a échoué sur le port %d", g_config.port);
+        lith_log(LOG_ERROR, "listen() a échoué sur le port %d", port_num);
         lith_socket_close(s);
         return LITH_INVALID_SOCKET;
     }
@@ -430,14 +428,26 @@ int server_run(void) {
     cache_init(g_config.use_cache ? (size_t)g_config.cache_max_size : 0, (size_t)g_config.cache_file_max);
     ratelimit_init(g_config.rate_limit, g_config.rate_burst);
 
-    socket_t ls = open_listener();
+    /* Écoutes : HTTP (PORT) et, si demandé, HTTPS (TLS_PORT). */
+    socket_t ls = open_listener(g_config.port);
+    socket_t tls_ls = LITH_INVALID_SOCKET;
+    if (ls != LITH_INVALID_SOCKET && g_config.tls_port > 0) {
+        if (tls_server_init(g_config.tls_cert, g_config.tls_key) == 0) tls_ls = open_listener(g_config.tls_port);
+        if (tls_ls == LITH_INVALID_SOCKET) {
+            lith_socket_close(ls);
+            ls = LITH_INVALID_SOCKET;
+        }
+    }
     if (ls == LITH_INVALID_SOCKET) {
+        tls_server_cleanup();
         lith_net_cleanup();
         return 1;
     }
     if (pool_start(threads) != 0) {
         lith_log(LOG_ERROR, "Impossible de créer les threads de travail");
         lith_socket_close(ls);
+        if (tls_ls != LITH_INVALID_SOCKET) lith_socket_close(tls_ls);
+        tls_server_cleanup();
         lith_net_cleanup();
         return 1;
     }
@@ -448,37 +458,54 @@ int server_run(void) {
     lith_log(LOG_INFO, "LITH %s prêt : http://%s:%d  (dossier '%s', %d threads, cache %s, gzip %s)",
              LITH_VERSION, shown, g_config.port, g_config.public_dir, P.nthreads,
              g_config.use_cache ? "on" : "off", g_config.gzip ? "on" : "off");
+    if (tls_ls != LITH_INVALID_SOCKET)
+        lith_log(LOG_INFO, "HTTPS actif : https://%s:%d  (certificat '%s'%s%s)", shown, g_config.tls_port, g_config.tls_cert,
+                 g_config.tls_redirect ? ", HTTP redirigé vers HTTPS" : "", g_config.hsts ? ", HSTS" : "");
     lith_log(LOG_INFO, "Appuyez sur Ctrl+C pour arrêter.");
 
     while (!server_stopping()) {
         fd_set rfds;
         FD_ZERO(&rfds);
         FD_SET(ls, &rfds);
+        socket_t maxfd = ls;
+        if (tls_ls != LITH_INVALID_SOCKET) {
+            FD_SET(tls_ls, &rfds);
+            if (tls_ls > maxfd) maxfd = tls_ls;
+        }
         struct timeval tv = { 0, POLL_SLICE_MS * 1000 };
-        int r = select((int)ls + 1, &rfds, NULL, NULL, &tv);
+        int r = select((int)maxfd + 1, &rfds, NULL, NULL, &tv);
         if (r <= 0) continue;
 
-        struct sockaddr_storage ss;
-        socklen_t sl = sizeof(ss);
-        socket_t cs = accept(ls, (struct sockaddr *)&ss, &sl);
-        if (cs == LITH_INVALID_SOCKET) continue;
+        for (int k = 0; k < 2; k++) {
+            socket_t l = k == 0 ? ls : tls_ls;
+            if (l == LITH_INVALID_SOCKET || !FD_ISSET(l, &rfds)) continue;
+            bool tls = k == 1;
 
-        char ip[64] = "-";
-        addr_to_ip(&ss, ip, sizeof(ip));
+            struct sockaddr_storage ss;
+            socklen_t sl = sizeof(ss);
+            socket_t cs = accept(l, (struct sockaddr *)&ss, &sl);
+            if (cs == LITH_INVALID_SOCKET) continue;
 
-        if (atomic_load(&g_queue_size) >= g_config.max_pending) {
-            static const char busy[] = "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nRetry-After: 1\r\nConnection: close\r\n\r\n";
-            lith_send_all(cs, busy, sizeof(busy) - 1);
-            lith_socket_close(cs);
-            lith_log(LOG_WARN, "File d'attente pleine (%d) : connexion de %s refusée", g_config.max_pending, ip);
-            continue;
+            char ip[64] = "-";
+            addr_to_ip(&ss, ip, sizeof(ip));
+
+            if (atomic_load(&g_queue_size) >= g_config.max_pending) {
+                /* En HTTPS, on ne peut rien écrire en clair : on ferme simplement. */
+                static const char busy[] = "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\nRetry-After: 1\r\nConnection: close\r\n\r\n";
+                if (!tls) lith_send_all(cs, busy, sizeof(busy) - 1);
+                lith_socket_close(cs);
+                lith_log(LOG_WARN, "File d'attente pleine (%d) : connexion de %s refusée", g_config.max_pending, ip);
+                continue;
+            }
+            if (!pool_push(cs, ip, tls)) lith_socket_close(cs);
         }
-        if (!pool_push(cs, ip)) lith_socket_close(cs);
     }
 
     lith_log(LOG_INFO, "Arrêt en cours : fin des requêtes en cours...");
     lith_socket_close(ls);
+    if (tls_ls != LITH_INVALID_SOCKET) lith_socket_close(tls_ls);
     pool_stop();
+    tls_server_cleanup();
     cache_destroy();
     lith_net_cleanup();
     lith_log(LOG_INFO, "LITH est arrêté. À bientôt !");
