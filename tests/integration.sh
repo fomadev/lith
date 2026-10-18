@@ -45,6 +45,8 @@ expect() { # expect "description" "attendu" "obtenu"
     if [ "$2" = "$3" ]; then ok "$1"; else ko "$1" "attendu '$2', obtenu '$3'"; fi
 }
 code() { curl -s -o /dev/null -w "%{http_code}" "$@"; }
+# Fichiers identiques ? (cksum fait partie de coreutils, contrairement à cmp absent de MSYS2 de base)
+same_file() { [ -f "$1" ] && [ -f "$2" ] && [ "$(cksum < "$1")" = "$(cksum < "$2")" ]; }
 
 wait_up() {
     for _ in $(seq 1 50); do
@@ -115,7 +117,7 @@ expect "SPA_FALLBACK sur /profil/42" "200" "$(code "$BASE/profil/42")"
 expect "redirection /docs -> /docs/" "301" "$(code "$BASE/docs")"
 expect "AUTO_INDEX liste notes.txt" "1" "$(curl -s "$BASE/docs/" | grep -c 'notes.txt')"
 curl -s "$BASE/data.bin" -o "$WORK/dl.bin"
-cmp -s "$WORK/dl.bin" public/data.bin && ok "fichier binaire identique" || ko "fichier binaire identique" "contenu différent"
+same_file "$WORK/dl.bin" public/data.bin && ok "fichier binaire identique" || ko "fichier binaire identique" "contenu différent"
 
 echo "== Sécurité"
 expect "fichier caché .env" "404" "$(code "$BASE/.env")"
@@ -145,7 +147,7 @@ GZ=$(curl -s -o /dev/null -w '%{size_download}' -H 'Accept-Encoding: gzip' "$BAS
 RAWSZ=$(curl -s -o /dev/null -w '%{size_download}' "$BASE/long.txt")
 [ "$GZ" -lt $((RAWSZ / 3)) ] && ok "gzip réduit la taille ($RAWSZ -> $GZ octets)" || ko "gzip" "$RAWSZ -> $GZ"
 curl -s --compressed "$BASE/long.txt" -o "$WORK/long.txt"
-cmp -s "$WORK/long.txt" public/long.txt && ok "gzip décompressé identique" || ko "gzip décompressé identique" "contenu différent"
+same_file "$WORK/long.txt" public/long.txt && ok "gzip décompressé identique" || ko "gzip décompressé identique" "contenu différent"
 expect "POST /__lith/echo" "21" "$(curl -s -X POST -H 'Content-Type: application/json' -d '{"test":"ci_payload"}' "$BASE/__lith/echo" | sed 's/.*"bytes_received":\([0-9]*\).*/\1/')"
 head -c 70000 /dev/zero > "$WORK/big.bin"
 expect "corps trop gros -> 413" "413" "$(code --data-binary @"$WORK/big.bin" "$BASE/__lith/echo")"
@@ -175,11 +177,14 @@ WS=$(curl -s -i -N --max-time 1 -H 'Connection: Upgrade' -H 'Upgrade: websocket'
 expect "poignée de main 101" "1" "$(echo "$WS" | grep -c '101 Switching Protocols')"
 expect "Sec-WebSocket-Accept (RFC 6455)" "1" "$(echo "$WS" | grep -c 's3pPLMBiTxaQ9kYGzzhZRbK+xOo=')"
 # Un fichier modifié doit envoyer la trame texte "reload" (0x81, longueur 6) aux navigateurs connectés.
-curl -s -N --max-time 5 -H 'Connection: Upgrade' -H 'Upgrade: websocket' -H 'Sec-WebSocket-Version: 13' \
-     -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' "$BASE/__lith/livereload" > "$WORK/ws.bin" & WS_PID=$!
+# Client WebSocket en bash pur : certains curl (macOS) ferment la connexion dès la réponse 101.
+exec 4<>"/dev/tcp/127.0.0.1/$PORT"
+printf 'GET /__lith/livereload HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n' >&4
+timeout 5 cat <&4 > "$WORK/ws.bin" & WS_PID=$!
 sleep 1.5
 echo "modifié" > public/touch.txt
 wait "$WS_PID" 2>/dev/null
+exec 4<&-
 expect "live reload : trame 'reload' après modification" "1" "$(grep -c 'reload' "$WORK/ws.bin")"
 
 echo "== Supervision"
@@ -280,10 +285,10 @@ EOF
         expect "TLS_REDIRECT : Host invalide -> 400" "400" "$(code -H 'Host: a"b' "http://127.0.0.1:$TLS_HTTP_PORT/")"
         expect "redirection suivie jusqu'en HTTPS" "200 $TLS_BASE/" "$(curl -sL $CA -o /dev/null -w '%{http_code} %{url_effective}' "http://localhost:$TLS_HTTP_PORT/")"
         curl -s $CA "$TLS_BASE/data.bin" -o "$WORK/tls-dl.bin"
-        cmp -s "$WORK/tls-dl.bin" public/data.bin && ok "HTTPS : fichier binaire identique" || ko "HTTPS : fichier binaire" "contenu différent"
+        same_file "$WORK/tls-dl.bin" public/data.bin && ok "HTTPS : fichier binaire identique" || ko "HTTPS : fichier binaire" "contenu différent"
         expect "HTTPS : Range 0-99 -> 206" "206 100" "$(curl -s $CA -o /dev/null -w '%{http_code} %{size_download}' -H 'Range: bytes=0-99' "$TLS_BASE/data.bin")"
         curl -s $CA --compressed "$TLS_BASE/long.txt" -o "$WORK/tls-long.txt"
-        cmp -s "$WORK/tls-long.txt" public/long.txt && ok "HTTPS : gzip décompressé identique" || ko "HTTPS : gzip" "contenu différent"
+        same_file "$WORK/tls-long.txt" public/long.txt && ok "HTTPS : gzip décompressé identique" || ko "HTTPS : gzip" "contenu différent"
         head -c 50000 /dev/zero > "$WORK/tls-body.bin"
         expect "HTTPS : POST 50 Ko" "50000" "$(curl -s $CA --data-binary @"$WORK/tls-body.bin" "$TLS_BASE/__lith/echo" | sed 's/.*"bytes_received":\([0-9]*\).*/\1/')"
         REUSE=$(curl -sv $CA "$TLS_BASE/" "$TLS_BASE/" -o /dev/null -o /dev/null 2>&1 | grep -ci 're-using\|reusing')
